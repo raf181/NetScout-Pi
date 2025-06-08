@@ -126,6 +126,87 @@ sudo chown -R $(whoami):$(whoami) /opt/netprobe
 sudo chown -R $(whoami):$(whoami) /var/log/netprobe
 ```
 
+### WiFi Not Working
+
+If the NetProbe WiFi access point is not showing up:
+
+1. Check if WiFi is blocked by rfkill:
+   ```bash
+   sudo rfkill list
+   ```
+
+2. Unblock WiFi:
+   ```bash
+   sudo rfkill unblock wifi
+   ```
+
+3. Set your country code for WiFi regulation:
+   ```bash
+   sudo raspi-config
+   ```
+   Navigate to "Localisation Options" > "WLAN Country" and select your country.
+
+4. Restart the WiFi services:
+   ```bash
+   sudo systemctl restart hostapd
+   sudo systemctl restart dnsmasq
+   ```
+
+### Dashboard Not Accessible
+
+If you can't access the dashboard after installation:
+
+1. Check if the service is running:
+   ```bash
+   sudo systemctl status netprobe
+   ```
+
+2. If the service is not running, start it:
+   ```bash
+   sudo systemctl start netprobe
+   ```
+
+3. Check the logs for any errors:
+   ```bash
+   sudo journalctl -u netprobe
+   ```
+
+4. Verify network configuration:
+   ```bash
+   ip addr show wlan0
+   ```
+   The WiFi interface should have IP address 192.168.4.1
+
+### Python Package Installation Issues
+
+If you encounter the "externally-managed-environment" error when installing Python packages, the direct_install.sh script has been updated to handle this by:
+
+1. Installing Python packages via apt-get instead of pip where possible
+2. Using `--break-system-packages` flag for essential packages when needed
+
+If you need to install additional Python packages manually, use:
+```bash
+sudo apt-get install python3-package-name
+```
+Or if the package is not available in apt:
+```bash
+sudo pip3 install --break-system-packages package-name
+```
+
+### GitHub Authentication Errors
+
+If you're experiencing GitHub authentication errors when cloning the repository, the direct_install.sh script avoids this issue by downloading the ZIP file directly. If you need to clone manually, use:
+
+```bash
+git clone https://github.com/raf181/NetScout-Pi.git
+```
+
+Or download the ZIP file directly:
+```bash
+wget https://github.com/raf181/NetScout-Pi/archive/refs/heads/main.zip
+unzip main.zip
+```
+
 ## First Boot Configuration
 
 On first boot, NetProbe Pi will:

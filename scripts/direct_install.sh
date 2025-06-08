@@ -22,8 +22,14 @@ fi
 
 # Install basic requirements
 echo "Installing basic requirements..."
-apt-get update > /dev/null
-apt-get install -y wget unzip python3 python3-pip > /dev/null
+apt-get update 
+apt-get install -y wget unzip python3 python3-pip git nmap tcpdump arp-scan speedtest-cli ifplugd avahi-daemon iproute2 dnsmasq hostapd
+
+# Install Python packages system-wide to avoid virtual environment issues
+echo "Installing Python packages system-wide..."
+apt-get install -y python3-flask python3-dotenv python3-click python3-watchdog python3-psutil \
+                  python3-netifaces python3-yaml python3-jsonschema python3-bcrypt python3-jwt \
+                  python3-requests python3-socketio
 
 # Download the repository
 echo "Downloading NetProbe Pi..."
@@ -36,21 +42,11 @@ unzip -q netscout.zip
 # Create installation directory
 echo "Creating installation directory..."
 mkdir -p /opt/netprobe
+mkdir -p /var/log/netprobe
 
 # Move files to installation directory
 echo "Moving files to installation directory..."
 cp -r NetScout-Pi-main/* /opt/netprobe/
-
-# Install Python dependencies with apt (safer approach)
-echo "Installing Python dependencies..."
-apt-get install -y \
-    python3-flask python3-socketio python3-dotenv python3-click python3-watchdog \
-    python3-psutil python3-netifaces python3-yaml python3-jsonschema \
-    python3-bcrypt python3-jwt python3-requests python3-paho-mqtt
-
-# Use pip with --break-system-packages for remaining dependencies
-echo "Installing remaining Python dependencies..."
-pip3 install --break-system-packages -r /opt/netprobe/requirements.txt
 
 # Set correct permissions
 echo "Setting permissions..."
@@ -63,8 +59,20 @@ else
         USER="$SUDO_USER"
         GROUP="$SUDO_USER"
     else
-        USER=$(whoami)
-        GROUP=$(whoami)
+        # Try to find a non-root user
+        for user in $(ls /home); do
+            if id "$user" &>/dev/null; then
+                USER="$user"
+                GROUP="$user"
+                break
+            fi
+        done
+        
+        # If still no user found, use current user
+        if [ -z "$USER" ]; then
+            USER=$(whoami)
+            GROUP=$(whoami)
+        fi
     fi
     echo "User 'pi' not found, using user '$USER' instead"
 fi
@@ -104,6 +112,71 @@ EOF
 echo "Enabling and starting service..."
 systemctl daemon-reload
 systemctl enable netprobe
+
+# Configure WiFi access point
+echo "Configuring WiFi access point..."
+systemctl unmask hostapd
+systemctl enable hostapd
+
+# Configure hostapd for WiFi access point
+cat > /etc/hostapd/hostapd.conf << EOF
+interface=wlan0
+driver=nl80211
+ssid=NetProbe
+hw_mode=g
+channel=7
+wmm_enabled=0
+macaddr_acl=0
+auth_algs=1
+ignore_broadcast_ssid=0
+wpa=2
+wpa_passphrase=netprobe123
+wpa_key_mgmt=WPA-PSK
+wpa_pairwise=TKIP
+rsn_pairwise=CCMP
+EOF
+
+# Configure dnsmasq for DHCP
+cat > /etc/dnsmasq.conf << EOF
+interface=wlan0
+dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,24h
+domain=local
+address=/netprobe.local/192.168.4.1
+EOF
+
+# Configure network interfaces
+echo "Configuring network interfaces..."
+cat > /etc/dhcpcd.conf << EOF
+# NetProbe Pi network configuration
+
+# Default behavior for all interfaces
+interface *
+allowinterfaces wlan0 eth0 lo
+option rapid_commit
+option domain_name_servers, 8.8.8.8, 8.8.4.4
+require dhcp_server_identifier
+slaac private
+
+# Configure wlan0 for admin access
+interface wlan0
+static ip_address=192.168.4.1/24
+nohook wpa_supplicant
+EOF
+
+# Unblock WiFi
+echo "Unblocking WiFi..."
+rfkill unblock wifi
+
+# Set country code for WiFi if raspi-config is available
+if command -v raspi-config >/dev/null 2>&1; then
+    echo "Setting WiFi country code..."
+    COUNTRY="US"  # Change this to your country code if needed
+    raspi-config nonint do_wifi_country $COUNTRY
+fi
+
+# Start the services
+systemctl restart dnsmasq
+systemctl restart hostapd
 systemctl start netprobe
 
 # Set up first boot

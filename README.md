@@ -131,6 +131,23 @@ Full documentation is available in the `docs/` directory:
 - [Plugin Development](docs/PLUGIN_DEVELOPMENT.md)
 - [API Reference](docs/API_REFERENCE.md)
 
+## 🔧 Troubleshooting
+
+If you encounter issues with the installation or operation of NetProbe Pi, we provide several troubleshooting options:
+
+- Detailed [Installation Guide](docs/INSTALL.md) with troubleshooting tips
+- Fix script for common issues: `sudo bash /opt/netprobe/scripts/fix_netprobe.sh`
+- Run the fix script directly from GitHub:
+  ```bash
+  curl -sSL https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/fix_netprobe.sh | sudo bash
+  ```
+
+The fix script can resolve:
+- WiFi access point not appearing
+- Dashboard not accessible
+- Service not starting properly
+- Network configuration issues
+
 ## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
