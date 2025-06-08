@@ -234,4 +234,25 @@ After installation and first boot:
 
 ## Additional Information
 
-For more details on how to use NetProbe Pi, refer to the [User Manual](USER_MANUAL.md).
+For more details on how to use NetProbe Pi, refer to the [User Manual](USER_MANUAL.md)
+
+### Quick Fix Script
+
+If you're experiencing issues with your NetProbe Pi installation, we provide an automatic fix script that can resolve most common problems:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/autofix.sh | sudo bash
+```
+
+This script will automatically:
+- Unblock WiFi
+- Configure the WiFi access point
+- Fix service permissions
+- Restart all necessary services
+- Add hostname resolution for netprobe.local
+
+For interactive troubleshooting, you can use our menu-based fix script:
+
+```bash
+sudo bash /opt/netprobe/scripts/fix_netprobe.sh
+```

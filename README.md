@@ -136,17 +136,21 @@ Full documentation is available in the `docs/` directory:
 If you encounter issues with the installation or operation of NetProbe Pi, we provide several troubleshooting options:
 
 - Detailed [Installation Guide](docs/INSTALL.md) with troubleshooting tips
-- Fix script for common issues: `sudo bash /opt/netprobe/scripts/fix_netprobe.sh`
-- Run the fix script directly from GitHub:
+- Interactive fix script (requires keyboard input):
   ```bash
-  curl -sSL https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/fix_netprobe.sh | sudo bash
+  sudo bash /opt/netprobe/scripts/fix_netprobe.sh
+  ```
+- Automatic fix script (recommended for remote or headless systems):
+  ```bash
+  curl -sSL https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/autofix.sh | sudo bash
   ```
 
-The fix script can resolve:
+The fix scripts can resolve:
 - WiFi access point not appearing
 - Dashboard not accessible
 - Service not starting properly
 - Network configuration issues
+- Hostname resolution problems
 
 ## 📜 License
 
