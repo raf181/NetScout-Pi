@@ -1,0 +1,793 @@
+{% extends "layout.html" %}
+
+{% block title %}NetProbe Pi - Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-network-wired me-2"></i>Network Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="network-info">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading network information...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <button id="refresh-network" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-sync-alt me-1"></i> Refresh
+                </button>
+                <button id="run-ip-info" class="btn btn-sm btn-primary float-end">
+                    <i class="fas fa-play me-1"></i> Run IP Info
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-tachometer-alt me-2"></i>Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    <button id="run-ping" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-exchange-alt me-2"></i>Run Ping Test
+                            <small class="d-block text-muted">Test connectivity to gateway and internet</small>
+                        </div>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <button id="run-speed" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-gauge-high me-2"></i>Speed Test
+                            <small class="d-block text-muted">Measure internet connection speed</small>
+                        </div>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <button id="run-arp" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-search me-2"></i>Scan Network
+                            <small class="d-block text-muted">Discover devices on your network</small>
+                        </div>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('plugins') }}" class="btn btn-sm btn-success">
+                    <i class="fas fa-plug me-1"></i> All Plugins
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-info text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-history me-2"></i>Recent Results
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="recent-results">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-info" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading recent results...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('results') }}" class="btn btn-sm btn-info text-white">
+                    <i class="fas fa-clipboard-list me-1"></i> All Results
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8 mb-4">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-line me-2"></i>Network Activity
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="network-chart" style="height: 300px;">
+                    <div class="text-center py-5">
+                        <p>Network activity chart will appear here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-bell me-2"></i>System Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="system-status">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-warning" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading system status...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for displaying results -->
+<div class="modal fade" id="resultModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Plugin Result</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="result-content">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Running plugin...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize Socket.IO
+        const socket = io();
+
+        // Load initial data
+        loadNetworkInfo();
+        loadRecentResults();
+        loadSystemStatus();
+
+        // Setup event handlers
+        $('#refresh-network').click(loadNetworkInfo);
+        $('#run-ip-info').click(() => runPlugin('ip_info'));
+        $('#run-ping').click(() => runPlugin('ping_test'));
+        $('#run-speed').click(() => runPlugin('speed_test'));
+        $('#run-arp').click(() => runPlugin('arp_scan'));
+
+        // Socket.IO event handlers
+        socket.on('plugin_result', function(data) {
+            displayPluginResult(data);
+            loadRecentResults();
+        });
+
+        socket.on('plugin_progress', function(data) {
+            updatePluginProgress(data);
+        });
+
+        socket.on('network_event', function(data) {
+            if (data.event === 'eth_connect') {
+                $('#network-status').html('<i class="fas fa-circle text-success me-1"></i> Connected');
+                loadNetworkInfo();
+            } else if (data.event === 'eth_disconnect') {
+                $('#network-status').html('<i class="fas fa-circle text-danger me-1"></i> Disconnected');
+                loadNetworkInfo();
+            }
+        });
+
+        // Functions
+        function loadNetworkInfo() {
+            $('#network-info').html(`
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading network information...</p>
+                </div>
+            `);
+
+            $.getJSON('/api/network/status', function(data) {
+                let html = '';
+                
+                if (data.eth0) {
+                    const eth0 = data.eth0;
+                    const statusColor = eth0.carrier ? 'success' : 'danger';
+                    const statusText = eth0.carrier ? 'Connected' : 'Disconnected';
+                    
+                    html += `
+                        <h6 class="border-bottom pb-2">Ethernet (eth0)</h6>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Status:</span>
+                            <span class="text-${statusColor}"><i class="fas fa-circle me-1"></i>${statusText}</span>
+                        </div>
+                    `;
+
+                    if (eth0.addresses && eth0.addresses.ipv4 && eth0.addresses.ipv4.length > 0) {
+                        const ipv4 = eth0.addresses.ipv4[0];
+                        html += `
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>IP Address:</span>
+                                <span>${ipv4.addr}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Netmask:</span>
+                                <span>${ipv4.netmask}</span>
+                            </div>
+                        `;
+                    } else {
+                        html += `<p class="text-muted">No IP address assigned</p>`;
+                    }
+                } else {
+                    html += `<p class="text-danger">Ethernet interface (eth0) not found</p>`;
+                }
+
+                if (data.wlan0) {
+                    const wlan0 = data.wlan0;
+                    html += `
+                        <h6 class="border-bottom pb-2 mt-3">WiFi (wlan0)</h6>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Status:</span>
+                            <span class="text-${wlan0.up ? 'success' : 'danger'}">
+                                <i class="fas fa-circle me-1"></i>${wlan0.up ? 'Up' : 'Down'}
+                            </span>
+                        </div>
+                    `;
+
+                    if (wlan0.addresses && wlan0.addresses.ipv4 && wlan0.addresses.ipv4.length > 0) {
+                        const ipv4 = wlan0.addresses.ipv4[0];
+                        html += `
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>IP Address:</span>
+                                <span>${ipv4.addr}</span>
+                            </div>
+                        `;
+                    }
+                }
+
+                $('#network-info').html(html);
+            }).fail(function() {
+                $('#network-info').html(`
+                    <div class="alert alert-danger">
+                        Failed to load network information
+                    </div>
+                `);
+            });
+        }
+
+        function loadRecentResults() {
+            $('#recent-results').html(`
+                <div class="text-center py-4">
+                    <div class="spinner-border text-info" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading recent results...</p>
+                </div>
+            `);
+
+            $.getJSON('/api/results/recent', function(data) {
+                if (data.length === 0) {
+                    $('#recent-results').html(`
+                        <p class="text-muted">No recent results found</p>
+                    `);
+                    return;
+                }
+
+                let html = '<div class="list-group">';
+                
+                data.forEach(result => {
+                    const timestamp = new Date(result.timestamp).toLocaleString();
+                    const pluginName = result.plugin?.name || 'Unknown';
+                    
+                    let statusIcon = '';
+                    if (result.error) {
+                        statusIcon = '<i class="fas fa-exclamation-circle text-danger"></i>';
+                    } else if (result.success === false) {
+                        statusIcon = '<i class="fas fa-times-circle text-warning"></i>';
+                    } else {
+                        statusIcon = '<i class="fas fa-check-circle text-success"></i>';
+                    }
+                    
+                    html += `
+                        <a href="/results/${result.run_id}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">${pluginName} ${statusIcon}</h6>
+                                <small>${timestamp}</small>
+                            </div>
+                            <small class="text-muted">Run ID: ${result.run_id}</small>
+                        </a>
+                    `;
+                });
+                
+                html += '</div>';
+                $('#recent-results').html(html);
+            }).fail(function() {
+                $('#recent-results').html(`
+                    <div class="alert alert-danger">
+                        Failed to load recent results
+                    </div>
+                `);
+            });
+        }
+
+        function loadSystemStatus() {
+            $('#system-status').html(`
+                <div class="text-center py-4">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading system status...</p>
+                </div>
+            `);
+
+            $.getJSON('/api/system/status', function(data) {
+                let html = '';
+                
+                // CPU usage
+                const cpuUsageClass = data.cpu_percent < 50 ? 'success' : 
+                                    data.cpu_percent < 80 ? 'warning' : 'danger';
+                html += `
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>CPU Usage:</span>
+                            <span class="text-${cpuUsageClass}">${data.cpu_percent.toFixed(1)}%</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar bg-${cpuUsageClass}" role="progressbar" 
+                                style="width: ${data.cpu_percent}%" aria-valuenow="${data.cpu_percent}" 
+                                aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                `;
+
+                // Memory usage
+                const memoryUsageClass = data.memory_percent < 50 ? 'success' : 
+                                      data.memory_percent < 80 ? 'warning' : 'danger';
+                html += `
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Memory Usage:</span>
+                            <span class="text-${memoryUsageClass}">${data.memory_percent.toFixed(1)}%</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar bg-${memoryUsageClass}" role="progressbar" 
+                                style="width: ${data.memory_percent}%" aria-valuenow="${data.memory_percent}" 
+                                aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                `;
+
+                // Disk usage
+                const diskUsageClass = data.disk_percent < 70 ? 'success' : 
+                                     data.disk_percent < 90 ? 'warning' : 'danger';
+                html += `
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Disk Usage:</span>
+                            <span class="text-${diskUsageClass}">${data.disk_percent.toFixed(1)}%</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar bg-${diskUsageClass}" role="progressbar" 
+                                style="width: ${data.disk_percent}%" aria-valuenow="${data.disk_percent}" 
+                                aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                `;
+
+                // Temperature
+                if (data.temperature) {
+                    const tempClass = data.temperature < 60 ? 'success' : 
+                                   data.temperature < 80 ? 'warning' : 'danger';
+                    html += `
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Temperature:</span>
+                                <span class="text-${tempClass}">${data.temperature.toFixed(1)}°C</span>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Uptime
+                html += `
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Uptime:</span>
+                            <span>${formatUptime(data.uptime)}</span>
+                        </div>
+                    </div>
+                `;
+                
+                $('#system-status').html(html);
+            }).fail(function() {
+                $('#system-status').html(`
+                    <div class="alert alert-danger">
+                        Failed to load system status
+                    </div>
+                `);
+            });
+        }
+
+        function runPlugin(pluginName) {
+            // Show the modal
+            const resultModal = new bootstrap.Modal(document.getElementById('resultModal'));
+            resultModal.show();
+            
+            $('#result-content').html(`
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Running ${pluginName}...</p>
+                    <div class="progress mt-3">
+                        <div id="plugin-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                            role="progressbar" style="width: 0%" aria-valuenow="0" 
+                            aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+            `);
+
+            // Call API to run plugin
+            $.ajax({
+                url: `/api/plugins/${pluginName}/run`,
+                type: 'POST',
+                success: function(data) {
+                    // The socket.io event will handle the result
+                },
+                error: function() {
+                    $('#result-content').html(`
+                        <div class="alert alert-danger">
+                            Failed to run plugin
+                        </div>
+                    `);
+                }
+            });
+        }
+
+        function displayPluginResult(data) {
+            if (!data || !data.result) {
+                $('#result-content').html(`
+                    <div class="alert alert-danger">
+                        No result data received
+                    </div>
+                `);
+                return;
+            }
+
+            const result = data.result;
+            let html = '';
+            
+            // Display error if any
+            if (result.error) {
+                html += `
+                    <div class="alert alert-danger">
+                        <strong>Error:</strong> ${result.error}
+                    </div>
+                `;
+            }
+
+            // Format result based on plugin type
+            if (data.plugin_name === 'ip_info') {
+                html += formatIpInfoResult(result);
+            } else if (data.plugin_name === 'ping_test') {
+                html += formatPingTestResult(result);
+            } else if (data.plugin_name === 'arp_scan') {
+                html += formatArpScanResult(result);
+            } else if (data.plugin_name === 'speed_test') {
+                html += formatSpeedTestResult(result);
+            } else {
+                // Generic JSON display
+                html += `<pre class="bg-light p-3 rounded">${JSON.stringify(result, null, 2)}</pre>`;
+            }
+
+            $('#result-content').html(html);
+        }
+
+        function formatIpInfoResult(result) {
+            let html = '';
+            
+            if (result.status === 'down') {
+                html += `
+                    <div class="alert alert-warning">
+                        Interface ${result.interface} is down
+                    </div>
+                `;
+                return html;
+            }
+
+            html += `
+                <h5>IP Information for ${result.interface}</h5>
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>Status</th>
+                            <td>
+                                <span class="badge bg-${result.status === 'up' ? 'success' : 'danger'}">
+                                    ${result.status}
+                                </span>
+                            </td>
+                        </tr>
+            `;
+
+            if (result.addresses && result.addresses.ipv4) {
+                const ipv4 = result.addresses.ipv4;
+                html += `
+                    <tr>
+                        <th>IPv4 Address</th>
+                        <td>${ipv4.address}</td>
+                    </tr>
+                    <tr>
+                        <th>Netmask</th>
+                        <td>${ipv4.netmask}</td>
+                    </tr>
+                    <tr>
+                        <th>CIDR</th>
+                        <td>${ipv4.cidr || 'N/A'}</td>
+                    </tr>
+                `;
+            }
+
+            html += `
+                <tr>
+                    <th>MAC Address</th>
+                    <td>${result.mac_address || 'N/A'}</td>
+                </tr>
+                <tr>
+                    <th>Gateway</th>
+                    <td>${result.gateway || 'N/A'}</td>
+                </tr>
+                <tr>
+                    <th>Hostname</th>
+                    <td>${result.hostname || 'N/A'}</td>
+                </tr>
+            `;
+
+            if (result.dns_servers && result.dns_servers.length > 0) {
+                html += `
+                    <tr>
+                        <th>DNS Servers</th>
+                        <td>${result.dns_servers.join('<br>')}</td>
+                    </tr>
+                `;
+            }
+
+            html += `
+                    </table>
+                </div>
+            `;
+
+            return html;
+        }
+
+        function formatPingTestResult(result) {
+            let html = '';
+            
+            if (result.error) {
+                html += `
+                    <div class="alert alert-danger">
+                        <strong>Error:</strong> ${result.error}
+                    </div>
+                `;
+                return html;
+            }
+
+            html += `
+                <h5>Ping Test Results</h5>
+                <p class="text-muted">Interface: ${result.interface}</p>
+                
+                <div class="alert alert-${result.status === 'excellent' ? 'success' : 
+                                        result.status === 'good' ? 'primary' : 
+                                        result.status === 'poor' ? 'warning' : 'danger'}">
+                    Connectivity Status: <strong>${result.status}</strong>
+                    <div class="mt-1">Success Rate: ${result.success_rate.toFixed(1)}%</div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Target</th>
+                                <th>Status</th>
+                                <th>Avg Time</th>
+                                <th>Packet Loss</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            result.results.forEach(ping => {
+                html += `
+                    <tr>
+                        <td>${ping.target}</td>
+                        <td>
+                            <span class="badge bg-${ping.success ? 'success' : 'danger'}">
+                                ${ping.success ? 'Success' : 'Failed'}
+                            </span>
+                        </td>
+                        <td>${ping.stats.avg ? ping.stats.avg.toFixed(2) + ' ms' : 'N/A'}</td>
+                        <td>${ping.packet_loss.toFixed(1)}%</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            return html;
+        }
+
+        function formatArpScanResult(result) {
+            let html = '';
+            
+            if (result.error) {
+                html += `
+                    <div class="alert alert-danger">
+                        <strong>Error:</strong> ${result.error}
+                    </div>
+                `;
+                return html;
+            }
+
+            html += `
+                <h5>ARP Scan Results</h5>
+                <p class="text-muted">Interface: ${result.interface}, Subnet: ${result.subnet || 'N/A'}</p>
+                <p>Found ${result.devices.length} devices on the network</p>
+                
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>IP Address</th>
+                                <th>MAC Address</th>
+                                <th>Hostname</th>
+                                <th>Vendor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            result.devices.forEach(device => {
+                html += `
+                    <tr>
+                        <td>${device.ip}</td>
+                        <td>${device.mac}</td>
+                        <td>${device.hostname || 'N/A'}</td>
+                        <td>${device.vendor || 'Unknown'}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            return html;
+        }
+
+        function formatSpeedTestResult(result) {
+            let html = '';
+            
+            if (result.error) {
+                html += `
+                    <div class="alert alert-danger">
+                        <strong>Error:</strong> ${result.error}
+                    </div>
+                `;
+                return html;
+            }
+
+            html += `
+                <h5>Speed Test Results</h5>
+                
+                <div class="row text-center mb-4">
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h3 class="text-primary">${result.average.download.toFixed(2)}</h3>
+                                <p class="mb-0">Download (Mbps)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h3 class="text-success">${result.average.upload.toFixed(2)}</h3>
+                                <p class="mb-0">Upload (Mbps)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h3 class="text-info">${result.average.ping.toFixed(2)}</h3>
+                                <p class="mb-0">Ping (ms)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (result.server_info) {
+                html += `
+                    <div class="card mb-3">
+                        <div class="card-header">Server Information</div>
+                        <div class="card-body">
+                            <p><strong>Server:</strong> ${result.server_info.name}</p>
+                            <p><strong>Location:</strong> ${result.server_info.location}, ${result.server_info.country}</p>
+                            <p><strong>Host:</strong> ${result.server_info.host}</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (result.client_info) {
+                html += `
+                    <div class="card">
+                        <div class="card-header">Client Information</div>
+                        <div class="card-body">
+                            <p><strong>IP:</strong> ${result.client_info.ip}</p>
+                            <p><strong>ISP:</strong> ${result.client_info.isp}</p>
+                            <p><strong>Location:</strong> ${result.client_info.location}</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            return html;
+        }
+
+        function updatePluginProgress(data) {
+            $('#plugin-progress-bar').css('width', `${data.progress}%`).attr('aria-valuenow', data.progress);
+            
+            if (data.status === 'error') {
+                $('#plugin-progress-bar').removeClass('progress-bar-animated').addClass('bg-danger');
+            }
+        }
+
+        function formatUptime(seconds) {
+            const days = Math.floor(seconds / (24 * 60 * 60));
+            seconds %= (24 * 60 * 60);
+            const hours = Math.floor(seconds / (60 * 60));
+            seconds %= (60 * 60);
+            const minutes = Math.floor(seconds / 60);
+            
+            let result = '';
+            if (days > 0) result += `${days}d `;
+            if (hours > 0) result += `${hours}h `;
+            if (minutes > 0) result += `${minutes}m`;
+            
+            return result || '< 1m';
+        }
+    });
+</script>
+{% endblock %}

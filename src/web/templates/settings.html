@@ -1,0 +1,820 @@
+{% extends "layout.html" %}
+
+{% block title %}NetProbe Pi - Settings{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4"><i class="fas fa-cog me-2"></i>Settings</h1>
+    
+    <div class="row">
+        <div class="col-md-3">
+            <div class="list-group mb-4" id="settings-tabs" role="tablist">
+                <a class="list-group-item list-group-item-action active" id="general-tab" data-bs-toggle="list" href="#general" role="tab" aria-controls="general">
+                    <i class="fas fa-sliders-h me-2"></i>General
+                </a>
+                <a class="list-group-item list-group-item-action" id="network-tab" data-bs-toggle="list" href="#network" role="tab" aria-controls="network">
+                    <i class="fas fa-network-wired me-2"></i>Network
+                </a>
+                <a class="list-group-item list-group-item-action" id="security-tab" data-bs-toggle="list" href="#security" role="tab" aria-controls="security">
+                    <i class="fas fa-shield-alt me-2"></i>Security
+                </a>
+                <a class="list-group-item list-group-item-action" id="logs-tab" data-bs-toggle="list" href="#logs" role="tab" aria-controls="logs">
+                    <i class="fas fa-file-alt me-2"></i>Logs
+                </a>
+                <a class="list-group-item list-group-item-action" id="developer-tab" data-bs-toggle="list" href="#developer" role="tab" aria-controls="developer">
+                    <i class="fas fa-code me-2"></i>Developer
+                </a>
+                <a class="list-group-item list-group-item-action" id="system-tab" data-bs-toggle="list" href="#system" role="tab" aria-controls="system">
+                    <i class="fas fa-server me-2"></i>System
+                </a>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="tab-content" id="settings-content">
+                <!-- General Settings -->
+                <div class="tab-pane fade show active" id="general" role="tabpanel" aria-labelledby="general-tab">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">General Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="general-settings-form">
+                                <div class="mb-3">
+                                    <label for="device-name" class="form-label">Device Name</label>
+                                    <input type="text" class="form-control" id="device-name" name="device.name">
+                                    <div class="form-text">Name of the device, used for mDNS.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="default-page" class="form-label">Default Dashboard Page</label>
+                                    <select class="form-select" id="default-page" name="web.default_page">
+                                        <option value="dashboard">Dashboard</option>
+                                        <option value="plugins">Plugins</option>
+                                        <option value="results">Results</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="session-timeout" class="form-label">Session Timeout (minutes)</label>
+                                    <input type="number" class="form-control" id="session-timeout" name="web.session_timeout" min="5" max="1440">
+                                    <div class="form-text">How long until you need to log in again.</div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Network Settings -->
+                <div class="tab-pane fade" id="network" role="tabpanel" aria-labelledby="network-tab">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">Network Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="network-settings-form">
+                                <div class="mb-3">
+                                    <label for="monitor-interface" class="form-label">Monitoring Interface</label>
+                                    <select class="form-select" id="monitor-interface" name="network.interface">
+                                        <option value="eth0">eth0 (Ethernet)</option>
+                                        <option value="wlan0">wlan0 (WiFi)</option>
+                                    </select>
+                                    <div class="form-text">Interface used for network diagnostics.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="monitor-method" class="form-label">Monitor Method</label>
+                                    <select class="form-select" id="monitor-method" name="network.monitor_method">
+                                        <option value="poll">Polling</option>
+                                        <option value="netlink">Netlink</option>
+                                        <option value="ifplugd">ifplugd</option>
+                                    </select>
+                                    <div class="form-text">Method used to detect network changes.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="poll-interval" class="form-label">Poll Interval (seconds)</label>
+                                    <input type="number" class="form-control" id="poll-interval" name="network.poll_interval" min="1" max="60">
+                                    <div class="form-text">How often to check for network changes (if using polling).</div>
+                                </div>
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="auto-run" name="network.auto_run_on_connect">
+                                    <label class="form-check-label" for="auto-run">Auto-run plugins on connect</label>
+                                    <div class="form-text">Automatically run plugins when Ethernet is connected.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="default-plugins" class="form-label">Default Plugins on Connect</label>
+                                    <select class="form-select" id="default-plugins" name="network.default_plugins" multiple size="5">
+                                        <!-- Options will be filled by JavaScript -->
+                                    </select>
+                                    <div class="form-text">Plugins to run when Ethernet is connected.</div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Security Settings -->
+                <div class="tab-pane fade" id="security" role="tabpanel" aria-labelledby="security-tab">
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">Authentication Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="password-form">
+                                <div class="mb-3">
+                                    <label for="current-password" class="form-label">Current Password</label>
+                                    <input type="password" class="form-control" id="current-password" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="new-password" class="form-label">New Password</label>
+                                    <input type="password" class="form-control" id="new-password" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="confirm-password" class="form-label">Confirm New Password</label>
+                                    <input type="password" class="form-control" id="confirm-password" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Change Password</button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">Network Security</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="security-settings-form">
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="auth-required" name="web.auth_required" checked>
+                                    <label class="form-check-label" for="auth-required">Require Authentication</label>
+                                    <div class="form-text">Require login to access the dashboard.</div>
+                                </div>
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="allow-eth0" name="security.allow_eth0_access">
+                                    <label class="form-check-label" for="allow-eth0">Allow Ethernet Access</label>
+                                    <div class="form-text">Allow dashboard access from Ethernet interface (less secure).</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">SSH Key</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="ssh-key" readonly>
+                                        <button class="btn btn-outline-secondary" type="button" id="view-ssh-key">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                    <div class="form-text">SSH public key for secure remote access.</div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Logs Settings -->
+                <div class="tab-pane fade" id="logs" role="tabpanel" aria-labelledby="logs-tab">
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">Log Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="logs-settings-form">
+                                <div class="mb-3">
+                                    <label for="log-level" class="form-label">Log Level</label>
+                                    <select class="form-select" id="log-level" name="logging.level">
+                                        <option value="DEBUG">Debug</option>
+                                        <option value="INFO">Info</option>
+                                        <option value="WARNING">Warning</option>
+                                        <option value="ERROR">Error</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="log-retention" class="form-label">Log Retention (days)</label>
+                                    <input type="number" class="form-control" id="log-retention" name="logging.retention_days" min="1" max="365">
+                                    <div class="form-text">How many days to keep logs before deleting.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="result-limit" class="form-label">Results to Keep (per plugin)</label>
+                                    <input type="number" class="form-control" id="result-limit" name="logging.max_results" min="10" max="1000">
+                                    <div class="form-text">Number of results to keep for each plugin.</div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">Export Logs</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Export all logs and results as a ZIP archive for backup or analysis.</p>
+                            <button id="export-logs" class="btn btn-success">
+                                <i class="fas fa-file-archive me-2"></i>Export All Logs
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Developer Settings -->
+                <div class="tab-pane fade" id="developer" role="tabpanel" aria-labelledby="developer-tab">
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">Developer Mode</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="developer-settings-form">
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="developer-mode" name="developer.enabled">
+                                    <label class="form-check-label" for="developer-mode">Enable Developer Mode</label>
+                                    <div class="form-text">Enables additional logging and features for plugin development.</div>
+                                </div>
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="debug-plugins" name="developer.debug_plugins">
+                                    <label class="form-check-label" for="debug-plugins">Debug Plugins</label>
+                                    <div class="form-text">Show detailed plugin execution logs in real-time.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="plugin-template" class="form-label">Plugin Template</label>
+                                    <div class="alert alert-info">
+                                        <p class="mb-2">Download a template to create your own plugins:</p>
+                                        <a href="/api/developer/plugin-template" class="btn btn-sm btn-info text-white" download="plugin_template.py">
+                                            <i class="fas fa-download me-1"></i> Download Template
+                                        </a>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">Integration Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="integration-settings-form">
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="enable-webhook" name="integration.webhook.enabled">
+                                    <label class="form-check-label" for="enable-webhook">Enable Webhook</label>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="webhook-url" class="form-label">Webhook URL</label>
+                                    <input type="url" class="form-control" id="webhook-url" name="integration.webhook.url">
+                                    <div class="form-text">URL to send event notifications to.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="webhook-events" class="form-label">Events to Notify</label>
+                                    <select class="form-select" id="webhook-events" name="integration.webhook.events" multiple size="3">
+                                        <option value="eth_connect">Ethernet Connect</option>
+                                        <option value="eth_disconnect">Ethernet Disconnect</option>
+                                        <option value="plugin_error">Plugin Error</option>
+                                    </select>
+                                </div>
+                                
+                                <hr class="my-4">
+                                
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="enable-mqtt" name="integration.mqtt.enabled">
+                                    <label class="form-check-label" for="enable-mqtt">Enable MQTT</label>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="mqtt-broker" class="form-label">MQTT Broker</label>
+                                    <input type="text" class="form-control" id="mqtt-broker" name="integration.mqtt.broker">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="mqtt-port" class="form-label">MQTT Port</label>
+                                    <input type="number" class="form-control" id="mqtt-port" name="integration.mqtt.port" value="1883">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="mqtt-topic" class="form-label">MQTT Topic Prefix</label>
+                                    <input type="text" class="form-control" id="mqtt-topic" name="integration.mqtt.topic_prefix" value="netprobe/">
+                                </div>
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- System Settings -->
+                <div class="tab-pane fade" id="system" role="tabpanel" aria-labelledby="system-tab">
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">System Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="system-info">
+                                <div class="text-center py-3">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <p class="mt-2">Loading system information...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">Updates</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span>Current Version:</span>
+                                    <span class="badge bg-info" id="current-version">Loading...</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>Latest Version:</span>
+                                    <span class="badge bg-success" id="latest-version">Loading...</span>
+                                </div>
+                            </div>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="auto-update" name="system.auto_update">
+                                <label class="form-check-label" for="auto-update">Enable Auto Updates</label>
+                                <div class="form-text">Automatically update when new versions are available.</div>
+                            </div>
+                            <button id="check-updates" class="btn btn-info text-white me-2">
+                                <i class="fas fa-sync-alt me-1"></i> Check for Updates
+                            </button>
+                            <button id="update-now" class="btn btn-success">
+                                <i class="fas fa-download me-1"></i> Update Now
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header bg-danger text-white">
+                            <h5 class="card-title mb-0">System Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex flex-wrap gap-2">
+                                <button id="restart-service" class="btn btn-warning">
+                                    <i class="fas fa-sync me-1"></i> Restart Service
+                                </button>
+                                <button id="reboot-system" class="btn btn-danger">
+                                    <i class="fas fa-power-off me-1"></i> Reboot System
+                                </button>
+                                <button id="reset-config" class="btn btn-outline-danger">
+                                    <i class="fas fa-trash me-1"></i> Reset Configuration
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SSH Key Modal -->
+<div class="modal fade" id="sshKeyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">SSH Public Key</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Copy this public key to add to your authorized keys on other systems:</p>
+                <pre id="ssh-key-content" class="bg-light p-3 rounded"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="copy-ssh-key">
+                    <i class="fas fa-copy me-1"></i> Copy to Clipboard
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="confirmation-message">
+                Are you sure you want to proceed?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm-action">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Load settings
+        loadSettings();
+        loadSystemInfo();
+        loadPluginOptions();
+        
+        // General settings form
+        $('#general-settings-form').submit(function(e) {
+            e.preventDefault();
+            saveSettings(formToObject(this), 'General settings saved successfully');
+        });
+        
+        // Network settings form
+        $('#network-settings-form').submit(function(e) {
+            e.preventDefault();
+            const formData = formToObject(this);
+            
+            // Handle multi-select
+            formData['network.default_plugins'] = $('#default-plugins').val();
+            
+            saveSettings(formData, 'Network settings saved successfully');
+        });
+        
+        // Security settings form
+        $('#security-settings-form').submit(function(e) {
+            e.preventDefault();
+            saveSettings(formToObject(this), 'Security settings saved successfully');
+        });
+        
+        // Logs settings form
+        $('#logs-settings-form').submit(function(e) {
+            e.preventDefault();
+            saveSettings(formToObject(this), 'Log settings saved successfully');
+        });
+        
+        // Developer settings form
+        $('#developer-settings-form').submit(function(e) {
+            e.preventDefault();
+            saveSettings(formToObject(this), 'Developer settings saved successfully');
+        });
+        
+        // Integration settings form
+        $('#integration-settings-form').submit(function(e) {
+            e.preventDefault();
+            const formData = formToObject(this);
+            
+            // Handle multi-select
+            formData['integration.webhook.events'] = $('#webhook-events').val();
+            
+            saveSettings(formData, 'Integration settings saved successfully');
+        });
+        
+        // Password change form
+        $('#password-form').submit(function(e) {
+            e.preventDefault();
+            
+            const currentPassword = $('#current-password').val();
+            const newPassword = $('#new-password').val();
+            const confirmPassword = $('#confirm-password').val();
+            
+            if (newPassword !== confirmPassword) {
+                alert('New passwords do not match');
+                return;
+            }
+            
+            $.ajax({
+                url: '/api/password',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    current_password: currentPassword,
+                    new_password: newPassword
+                }),
+                success: function() {
+                    alert('Password changed successfully');
+                    $('#password-form')[0].reset();
+                },
+                error: function(xhr) {
+                    let errorMsg = 'Failed to change password';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMsg = xhr.responseJSON.error;
+                    }
+                    alert(errorMsg);
+                }
+            });
+        });
+        
+        // View SSH key
+        $('#view-ssh-key').click(function() {
+            $.getJSON('/api/system/ssh-key', function(data) {
+                $('#ssh-key-content').text(data.public_key);
+                new bootstrap.Modal(document.getElementById('sshKeyModal')).show();
+            }).fail(function() {
+                alert('Failed to retrieve SSH key');
+            });
+        });
+        
+        // Copy SSH key
+        $('#copy-ssh-key').click(function() {
+            const sshKey = $('#ssh-key-content').text();
+            navigator.clipboard.writeText(sshKey).then(function() {
+                alert('SSH key copied to clipboard');
+            }, function() {
+                alert('Failed to copy SSH key');
+            });
+        });
+        
+        // Export logs
+        $('#export-logs').click(function() {
+            window.location.href = '/api/logs/export';
+        });
+        
+        // Check for updates
+        $('#check-updates').click(function() {
+            $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Checking...');
+            
+            $.getJSON('/api/system/check-updates', function(data) {
+                $('#latest-version').text(data.latest_version);
+                
+                if (data.update_available) {
+                    $('#update-now').removeClass('disabled').prop('disabled', false);
+                    alert('Update available! Version ' + data.latest_version);
+                } else {
+                    alert('You are running the latest version');
+                }
+            }).fail(function() {
+                alert('Failed to check for updates');
+            }).always(function() {
+                $('#check-updates').prop('disabled', false).html('<i class="fas fa-sync-alt me-1"></i> Check for Updates');
+            });
+        });
+        
+        // Update now
+        $('#update-now').click(function() {
+            showConfirmation(
+                'Are you sure you want to update the system? This will restart the service.',
+                function() {
+                    $.ajax({
+                        url: '/api/system/update',
+                        type: 'POST',
+                        success: function() {
+                            alert('Update started. The service will restart when complete.');
+                        },
+                        error: function() {
+                            alert('Failed to start update');
+                        }
+                    });
+                }
+            );
+        });
+        
+        // Restart service
+        $('#restart-service').click(function() {
+            showConfirmation(
+                'Are you sure you want to restart the NetProbe service?',
+                function() {
+                    $.ajax({
+                        url: '/api/system/restart-service',
+                        type: 'POST',
+                        success: function() {
+                            alert('Service restart initiated. Please wait a moment and refresh the page.');
+                        },
+                        error: function() {
+                            alert('Failed to restart service');
+                        }
+                    });
+                }
+            );
+        });
+        
+        // Reboot system
+        $('#reboot-system').click(function() {
+            showConfirmation(
+                'Are you sure you want to reboot the entire system? This will disconnect all users.',
+                function() {
+                    $.ajax({
+                        url: '/api/system/reboot',
+                        type: 'POST',
+                        success: function() {
+                            alert('System reboot initiated. Please wait for the device to restart.');
+                        },
+                        error: function() {
+                            alert('Failed to reboot system');
+                        }
+                    });
+                }
+            );
+        });
+        
+        // Reset configuration
+        $('#reset-config').click(function() {
+            showConfirmation(
+                'Are you sure you want to reset all configuration to default? This cannot be undone!',
+                function() {
+                    $.ajax({
+                        url: '/api/system/reset-config',
+                        type: 'POST',
+                        success: function() {
+                            alert('Configuration reset. The service will restart with default settings.');
+                            setTimeout(function() {
+                                window.location.reload();
+                            }, 3000);
+                        },
+                        error: function() {
+                            alert('Failed to reset configuration');
+                        }
+                    });
+                }
+            );
+        });
+        
+        // Helper functions
+        function loadSettings() {
+            $.getJSON('/api/settings', function(settings) {
+                // General settings
+                $('#device-name').val(settings.device?.name || 'netprobe');
+                $('#default-page').val(settings.web?.default_page || 'dashboard');
+                $('#session-timeout').val(Math.floor((settings.web?.session_timeout || 3600) / 60));
+                
+                // Network settings
+                $('#monitor-interface').val(settings.network?.interface || 'eth0');
+                $('#monitor-method').val(settings.network?.monitor_method || 'poll');
+                $('#poll-interval').val(settings.network?.poll_interval || 5);
+                $('#auto-run').prop('checked', settings.network?.auto_run_on_connect !== false);
+                
+                if (settings.network?.default_plugins) {
+                    $('#default-plugins').val(settings.network.default_plugins);
+                }
+                
+                // Security settings
+                $('#auth-required').prop('checked', settings.web?.auth_required !== false);
+                $('#allow-eth0').prop('checked', settings.security?.allow_eth0_access === true);
+                
+                // Log settings
+                $('#log-level').val(settings.logging?.level || 'INFO');
+                $('#log-retention').val(settings.logging?.retention_days || 30);
+                $('#result-limit').val(settings.logging?.max_results || 100);
+                
+                // Developer settings
+                $('#developer-mode').prop('checked', settings.developer?.enabled === true);
+                $('#debug-plugins').prop('checked', settings.developer?.debug_plugins === true);
+                
+                // Integration settings
+                $('#enable-webhook').prop('checked', settings.integration?.webhook?.enabled === true);
+                $('#webhook-url').val(settings.integration?.webhook?.url || '');
+                
+                if (settings.integration?.webhook?.events) {
+                    $('#webhook-events').val(settings.integration.webhook.events);
+                }
+                
+                $('#enable-mqtt').prop('checked', settings.integration?.mqtt?.enabled === true);
+                $('#mqtt-broker').val(settings.integration?.mqtt?.broker || '');
+                $('#mqtt-port').val(settings.integration?.mqtt?.port || 1883);
+                $('#mqtt-topic').val(settings.integration?.mqtt?.topic_prefix || 'netprobe/');
+                
+                // System settings
+                $('#auto-update').prop('checked', settings.system?.auto_update === true);
+                $('#current-version').text(settings.version || '0.1.0');
+            }).fail(function() {
+                alert('Failed to load settings');
+            });
+        }
+        
+        function loadSystemInfo() {
+            $.getJSON('/api/system/info', function(info) {
+                let html = `
+                    <table class="table">
+                        <tr>
+                            <th>Hostname</th>
+                            <td>${info.hostname}</td>
+                        </tr>
+                        <tr>
+                            <th>Model</th>
+                            <td>${info.hardware_model}</td>
+                        </tr>
+                        <tr>
+                            <th>OS</th>
+                            <td>${info.os} ${info.os_version}</td>
+                        </tr>
+                        <tr>
+                            <th>Kernel</th>
+                            <td>${info.kernel}</td>
+                        </tr>
+                        <tr>
+                            <th>Uptime</th>
+                            <td>${formatUptime(info.uptime)}</td>
+                        </tr>
+                        <tr>
+                            <th>CPU Usage</th>
+                            <td>${info.cpu_percent}%</td>
+                        </tr>
+                        <tr>
+                            <th>Memory</th>
+                            <td>${formatSize(info.memory_used)} / ${formatSize(info.memory_total)} (${info.memory_percent}%)</td>
+                        </tr>
+                        <tr>
+                            <th>Disk</th>
+                            <td>${formatSize(info.disk_used)} / ${formatSize(info.disk_total)} (${info.disk_percent}%)</td>
+                        </tr>
+                        <tr>
+                            <th>Temperature</th>
+                            <td>${info.temperature ? info.temperature.toFixed(1) + '°C' : 'N/A'}</td>
+                        </tr>
+                    </table>
+                `;
+                
+                $('#system-info').html(html);
+            }).fail(function() {
+                $('#system-info').html(`<div class="alert alert-danger">Failed to load system information</div>`);
+            });
+        }
+        
+        function loadPluginOptions() {
+            $.getJSON('/api/plugins', function(plugins) {
+                let html = '';
+                
+                for (const [name, plugin] of Object.entries(plugins)) {
+                    if (plugin.enabled !== false) {
+                        html += `<option value="${name}">${name} - ${plugin.metadata.description}</option>`;
+                    }
+                }
+                
+                $('#default-plugins').html(html);
+            }).fail(function() {
+                $('#default-plugins').html('<option value="">Failed to load plugins</option>');
+            });
+        }
+        
+        function formToObject(form) {
+            const formData = {};
+            
+            $(form).find('input, select, textarea').each(function() {
+                const input = $(this);
+                const name = input.attr('name');
+                
+                if (!name) return;
+                
+                let value;
+                
+                if (input.attr('type') === 'checkbox') {
+                    value = input.prop('checked');
+                } else if (input.attr('type') === 'number') {
+                    value = parseInt(input.val()) || 0;
+                } else {
+                    value = input.val();
+                }
+                
+                formData[name] = value;
+            });
+            
+            return formData;
+        }
+        
+        function saveSettings(settings, successMsg) {
+            $.ajax({
+                url: '/api/settings',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(settings),
+                success: function() {
+                    alert(successMsg);
+                },
+                error: function() {
+                    alert('Failed to save settings');
+                }
+            });
+        }
+        
+        function showConfirmation(message, onConfirm) {
+            $('#confirmation-message').text(message);
+            
+            const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+            modal.show();
+            
+            $('#confirm-action').off('click').on('click', function() {
+                modal.hide();
+                onConfirm();
+            });
+        }
+        
+        function formatUptime(seconds) {
+            const days = Math.floor(seconds / (24 * 60 * 60));
+            seconds %= (24 * 60 * 60);
+            const hours = Math.floor(seconds / (60 * 60));
+            seconds %= (60 * 60);
+            const minutes = Math.floor(seconds / 60);
+            seconds %= 60;
+            
+            let result = '';
+            if (days > 0) result += `${days}d `;
+            if (hours > 0) result += `${hours}h `;
+            if (minutes > 0) result += `${minutes}m `;
+            result += `${seconds}s`;
+            
+            return result;
+        }
+        
+        function formatSize(bytes) {
+            if (bytes === 0) return '0 B';
+            
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+    });
+</script>
+{% endblock %}

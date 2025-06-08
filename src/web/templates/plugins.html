@@ -1,0 +1,659 @@
+{% extends "layout.html" %}
+
+{% block title %}NetProbe Pi - Plugins{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4"><i class="fas fa-plug me-2"></i>Plugins</h1>
+    
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Available Plugins</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Version</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="plugins-list">
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2">Loading plugins...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">Install Plugin</h5>
+                </div>
+                <div class="card-body">
+                    <form id="upload-plugin-form" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="plugin-file" class="form-label">Plugin File (.py)</label>
+                            <input type="file" class="form-control" id="plugin-file" name="plugin" accept=".py">
+                            <div class="form-text">Upload a Python file that follows the plugin interface.</div>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="overwrite-check" name="overwrite">
+                            <label class="form-check-label" for="overwrite-check">
+                                Overwrite if exists
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="fas fa-upload me-1"></i> Upload Plugin
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">Create Sequence</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="sequence-name" class="form-label">Sequence Name</label>
+                        <input type="text" class="form-control" id="sequence-name" placeholder="My Sequence">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Select Plugins</label>
+                        <div id="sequence-plugins" class="list-group">
+                            <div class="text-center py-2">
+                                <div class="spinner-border spinner-border-sm text-info" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <small>Loading plugins...</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="sequential-check" checked>
+                        <label class="form-check-label" for="sequential-check">
+                            Run sequentially
+                        </label>
+                    </div>
+                    <button id="save-sequence" class="btn btn-info w-100 text-white">
+                        <i class="fas fa-save me-1"></i> Save Sequence
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0">Saved Sequences</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Plugins</th>
+                                    <th>Sequential</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sequences-list">
+                                <tr>
+                                    <td colspan="4" class="text-center py-4">
+                                        <div class="spinner-border text-warning" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2">Loading sequences...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Plugin Details Modal -->
+<div class="modal fade" id="pluginDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Plugin Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="plugin-details-content">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading plugin details...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Run Sequence Modal -->
+<div class="modal fade" id="runSequenceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Run Sequence</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="sequence-progress">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Running sequence...</p>
+                        <div class="progress mt-3">
+                            <div id="sequence-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                role="progressbar" style="width: 0%" aria-valuenow="0" 
+                                aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="sequence-results" class="mt-4"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        loadPlugins();
+        loadSequences();
+        
+        // Upload plugin form
+        $('#upload-plugin-form').submit(function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const pluginFile = $('#plugin-file')[0].files[0];
+            const overwrite = $('#overwrite-check').is(':checked');
+            
+            if (!pluginFile) {
+                alert('Please select a plugin file');
+                return;
+            }
+            
+            formData.append('plugin', pluginFile);
+            formData.append('overwrite', overwrite);
+            
+            // Show loading
+            const uploadBtn = $('#upload-plugin-form button[type="submit"]');
+            const originalBtnText = uploadBtn.html();
+            uploadBtn.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...');
+            uploadBtn.prop('disabled', true);
+            
+            // Upload plugin
+            $.ajax({
+                url: '/api/plugins/upload',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(data) {
+                    alert('Plugin uploaded successfully');
+                    loadPlugins();
+                    $('#plugin-file').val('');
+                    $('#overwrite-check').prop('checked', false);
+                },
+                error: function(xhr) {
+                    let errorMsg = 'Failed to upload plugin';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMsg = xhr.responseJSON.error;
+                    }
+                    alert(errorMsg);
+                },
+                complete: function() {
+                    uploadBtn.html(originalBtnText);
+                    uploadBtn.prop('disabled', false);
+                }
+            });
+        });
+        
+        // Save sequence
+        $('#save-sequence').click(function() {
+            const sequenceName = $('#sequence-name').val().trim();
+            
+            if (!sequenceName) {
+                alert('Please enter a sequence name');
+                return;
+            }
+            
+            const plugins = [];
+            $('.sequence-plugin-check:checked').each(function() {
+                plugins.push($(this).val());
+            });
+            
+            if (plugins.length === 0) {
+                alert('Please select at least one plugin');
+                return;
+            }
+            
+            const sequential = $('#sequential-check').is(':checked');
+            
+            // Show loading
+            const saveBtn = $('#save-sequence');
+            const originalBtnText = saveBtn.html();
+            saveBtn.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...');
+            saveBtn.prop('disabled', true);
+            
+            // Save sequence
+            $.ajax({
+                url: '/api/sequences',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    name: sequenceName,
+                    plugins: plugins,
+                    sequential: sequential
+                }),
+                success: function() {
+                    alert('Sequence saved successfully');
+                    loadSequences();
+                    $('#sequence-name').val('');
+                    $('.sequence-plugin-check').prop('checked', false);
+                },
+                error: function(xhr) {
+                    let errorMsg = 'Failed to save sequence';
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        errorMsg = xhr.responseJSON.error;
+                    }
+                    alert(errorMsg);
+                },
+                complete: function() {
+                    saveBtn.html(originalBtnText);
+                    saveBtn.prop('disabled', false);
+                }
+            });
+        });
+        
+        // Functions
+        function loadPlugins() {
+            $.getJSON('/api/plugins', function(plugins) {
+                // Update plugins list
+                let html = '';
+                
+                if (Object.keys(plugins).length === 0) {
+                    html = `<tr><td colspan="5" class="text-center">No plugins found</td></tr>`;
+                } else {
+                    for (const [name, plugin] of Object.entries(plugins)) {
+                        const isEnabled = plugin.enabled !== false;
+                        const isBuiltin = !plugin.file_path.includes('/plugins/user/');
+                        
+                        html += `
+                            <tr>
+                                <td>${name}</td>
+                                <td>${plugin.metadata.description}</td>
+                                <td>${plugin.metadata.version}</td>
+                                <td>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input plugin-toggle" type="checkbox" 
+                                            data-plugin="${name}" ${isEnabled ? 'checked' : ''}>
+                                        <label class="form-check-label">
+                                            ${isEnabled ? 'Enabled' : 'Disabled'}
+                                        </label>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-primary run-plugin" data-plugin="${name}">
+                                            <i class="fas fa-play"></i>
+                                        </button>
+                                        <button class="btn btn-info view-plugin" data-plugin="${name}">
+                                            <i class="fas fa-info-circle"></i>
+                                        </button>
+                                        ${!isBuiltin ? `
+                                        <button class="btn btn-danger delete-plugin" data-plugin="${name}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        ` : ''}
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }
+                }
+                
+                $('#plugins-list').html(html);
+                
+                // Update sequence plugins list
+                html = '';
+                
+                for (const [name, plugin] of Object.entries(plugins)) {
+                    if (plugin.enabled !== false) {
+                        html += `
+                            <div class="list-group-item">
+                                <div class="form-check">
+                                    <input class="form-check-input sequence-plugin-check" type="checkbox" value="${name}" id="plugin-${name}">
+                                    <label class="form-check-label" for="plugin-${name}">
+                                        ${name} - ${plugin.metadata.description}
+                                    </label>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+                
+                $('#sequence-plugins').html(html || '<div class="text-center py-2">No enabled plugins available</div>');
+                
+                // Setup event handlers
+                $('.plugin-toggle').change(function() {
+                    const plugin = $(this).data('plugin');
+                    const enabled = $(this).prop('checked');
+                    
+                    $.ajax({
+                        url: `/api/plugins/${plugin}/toggle`,
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ enabled: enabled }),
+                        success: function() {
+                            loadPlugins();
+                        },
+                        error: function() {
+                            alert(`Failed to ${enabled ? 'enable' : 'disable'} plugin: ${plugin}`);
+                            loadPlugins();
+                        }
+                    });
+                });
+                
+                $('.run-plugin').click(function() {
+                    const plugin = $(this).data('plugin');
+                    runPlugin(plugin);
+                });
+                
+                $('.view-plugin').click(function() {
+                    const plugin = $(this).data('plugin');
+                    showPluginDetails(plugin);
+                });
+                
+                $('.delete-plugin').click(function() {
+                    const plugin = $(this).data('plugin');
+                    
+                    if (confirm(`Are you sure you want to uninstall plugin: ${plugin}?`)) {
+                        $.ajax({
+                            url: `/api/plugins/${plugin}`,
+                            type: 'DELETE',
+                            success: function() {
+                                alert(`Plugin ${plugin} uninstalled successfully`);
+                                loadPlugins();
+                            },
+                            error: function() {
+                                alert(`Failed to uninstall plugin: ${plugin}`);
+                            }
+                        });
+                    }
+                });
+            }).fail(function() {
+                $('#plugins-list').html(`
+                    <tr>
+                        <td colspan="5" class="text-center text-danger">
+                            Failed to load plugins
+                        </td>
+                    </tr>
+                `);
+                
+                $('#sequence-plugins').html(`
+                    <div class="text-center py-2 text-danger">
+                        Failed to load plugins
+                    </div>
+                `);
+            });
+        }
+        
+        function loadSequences() {
+            $.getJSON('/api/sequences', function(sequences) {
+                let html = '';
+                
+                if (sequences.length === 0) {
+                    html = `<tr><td colspan="4" class="text-center">No sequences found</td></tr>`;
+                } else {
+                    sequences.forEach(sequence => {
+                        html += `
+                            <tr>
+                                <td>${sequence.name}</td>
+                                <td>${sequence.plugins.join(', ')}</td>
+                                <td>${sequence.sequential ? 'Yes' : 'No'}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-primary run-sequence" data-sequence="${sequence.id}">
+                                            <i class="fas fa-play"></i>
+                                        </button>
+                                        <button class="btn btn-danger delete-sequence" data-sequence="${sequence.id}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+                
+                $('#sequences-list').html(html);
+                
+                // Setup event handlers
+                $('.run-sequence').click(function() {
+                    const sequenceId = $(this).data('sequence');
+                    runSequence(sequenceId);
+                });
+                
+                $('.delete-sequence').click(function() {
+                    const sequenceId = $(this).data('sequence');
+                    
+                    if (confirm('Are you sure you want to delete this sequence?')) {
+                        $.ajax({
+                            url: `/api/sequences/${sequenceId}`,
+                            type: 'DELETE',
+                            success: function() {
+                                loadSequences();
+                            },
+                            error: function() {
+                                alert('Failed to delete sequence');
+                            }
+                        });
+                    }
+                });
+            }).fail(function() {
+                $('#sequences-list').html(`
+                    <tr>
+                        <td colspan="4" class="text-center text-danger">
+                            Failed to load sequences
+                        </td>
+                    </tr>
+                `);
+            });
+        }
+        
+        function showPluginDetails(plugin) {
+            const modal = new bootstrap.Modal(document.getElementById('pluginDetailsModal'));
+            modal.show();
+            
+            $.getJSON(`/api/plugins/${plugin}`, function(data) {
+                let html = `
+                    <h4>${data.metadata.name} v${data.metadata.version}</h4>
+                    <p class="text-muted">${data.metadata.description}</p>
+                    
+                    <div class="card mb-3">
+                        <div class="card-header">Plugin Information</div>
+                        <div class="card-body">
+                            <table class="table">
+                                <tr>
+                                    <th>Author</th>
+                                    <td>${data.metadata.author}</td>
+                                </tr>
+                                <tr>
+                                    <th>Category</th>
+                                    <td>${data.metadata.category || 'General'}</td>
+                                </tr>
+                                <tr>
+                                    <th>Required Permissions</th>
+                                    <td>${data.metadata.permissions && data.metadata.permissions.length ? 
+                                        data.metadata.permissions.join(', ') : 'None'}</td>
+                                </tr>
+                                <tr>
+                                    <th>Location</th>
+                                    <td>${data.file_path}</td>
+                                </tr>
+                                <tr>
+                                    <th>Status</th>
+                                    <td>${data.status.running ? 
+                                        `<span class="text-primary">Running (${data.status.progress}%)</span>` : 
+                                        `<span class="text-success">Ready</span>`}
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">Recent Results</div>
+                        <div class="card-body p-0">
+                            <div class="list-group list-group-flush">
+                `;
+                
+                if (data.recent_results && data.recent_results.length) {
+                    data.recent_results.forEach(result => {
+                        const timestamp = new Date(result.timestamp).toLocaleString();
+                        const status = result.error ? 'text-danger' : 'text-success';
+                        const statusIcon = result.error ? 
+                            '<i class="fas fa-times-circle text-danger"></i>' : 
+                            '<i class="fas fa-check-circle text-success"></i>';
+                            
+                        html += `
+                            <a href="/results/${result.run_id}" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">${statusIcon} Run ID: ${result.run_id.substring(0, 8)}</h6>
+                                    <small>${timestamp}</small>
+                                </div>
+                                <small class="${status}">${result.error || 'Success'}</small>
+                            </a>
+                        `;
+                    });
+                } else {
+                    html += `<div class="list-group-item text-center">No recent results</div>`;
+                }
+                
+                html += `
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                $('#plugin-details-content').html(html);
+            }).fail(function() {
+                $('#plugin-details-content').html(`
+                    <div class="alert alert-danger">
+                        Failed to load plugin details
+                    </div>
+                `);
+            });
+        }
+        
+        function runPlugin(plugin) {
+            window.location.href = `/?run=${plugin}`;
+        }
+        
+        function runSequence(sequenceId) {
+            const modal = new bootstrap.Modal(document.getElementById('runSequenceModal'));
+            modal.show();
+            
+            $('#sequence-results').empty();
+            $('#sequence-progress-bar').css('width', '0%').attr('aria-valuenow', 0);
+            
+            $.ajax({
+                url: `/api/sequences/${sequenceId}/run`,
+                type: 'POST',
+                success: function(data) {
+                    // Sequence started, results will come via WebSocket
+                },
+                error: function() {
+                    $('#sequence-progress').html(`
+                        <div class="alert alert-danger">
+                            Failed to start sequence
+                        </div>
+                    `);
+                }
+            });
+        }
+        
+        // Socket.IO events for sequence progress and results
+        const socket = io();
+        
+        socket.on('sequence_progress', function(data) {
+            const progress = data.overall_progress || 0;
+            $('#sequence-progress-bar').css('width', `${progress}%`).attr('aria-valuenow', progress);
+        });
+        
+        socket.on('sequence_result', function(data) {
+            $('#sequence-progress').html(`
+                <div class="alert alert-success">
+                    Sequence completed
+                </div>
+            `);
+            
+            let html = '';
+            
+            for (const [plugin, result] of Object.entries(data.results)) {
+                const status = result.error ? 'danger' : 'success';
+                const statusIcon = result.error ? 
+                    '<i class="fas fa-times-circle"></i>' : 
+                    '<i class="fas fa-check-circle"></i>';
+                    
+                html += `
+                    <div class="card mb-3">
+                        <div class="card-header bg-${status} text-white">
+                            ${statusIcon} ${plugin}
+                        </div>
+                        <div class="card-body">
+                `;
+                
+                if (result.error) {
+                    html += `<div class="alert alert-danger">${result.error}</div>`;
+                } else {
+                    html += `<pre class="bg-light p-3 rounded">${JSON.stringify(result, null, 2)}</pre>`;
+                }
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            $('#sequence-results').html(html);
+        });
+    });
+</script>
+{% endblock %}

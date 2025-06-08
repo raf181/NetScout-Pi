@@ -1,0 +1,175 @@
+#!/bin/bash
+# NetProbe Pi - Installation Script
+
+set -e
+
+LOG_FILE="./install.log"
+INSTALL_DIR="/opt/netprobe"
+SERVICE_NAME="netprobe"
+USER="pi"
+GROUP="pi"
+
+# Log function
+log() {
+    echo "$(date): $1" | tee -a $LOG_FILE
+}
+
+log "Starting NetProbe Pi installation"
+
+# Check if running as root
+if [ "$(id -u)" -ne 0 ]; then
+    log "This script must be run as root. Try 'sudo $0'"
+    exit 1
+fi
+
+# Update system
+log "Updating system..."
+apt-get update
+apt-get upgrade -y
+
+# Install dependencies
+log "Installing dependencies..."
+apt-get install -y \
+    python3 python3-pip python3-venv \
+    git nmap tcpdump arp-scan speedtest-cli \
+    ifplugd avahi-daemon iproute2 \
+    build-essential libffi-dev libssl-dev
+
+# Create installation directory
+log "Creating installation directory..."
+mkdir -p $INSTALL_DIR
+mkdir -p /var/log/netprobe
+
+# Copy files to installation directory
+log "Copying files to installation directory..."
+cp -r ./* $INSTALL_DIR/
+
+# Set up Python virtual environment
+log "Setting up Python virtual environment..."
+python3 -m venv $INSTALL_DIR/venv
+$INSTALL_DIR/venv/bin/pip install --upgrade pip
+$INSTALL_DIR/venv/bin/pip install -r $INSTALL_DIR/requirements.txt
+
+# Set permissions
+log "Setting permissions..."
+chown -R $USER:$GROUP $INSTALL_DIR
+chown -R $USER:$GROUP /var/log/netprobe
+chmod +x $INSTALL_DIR/scripts/*.sh
+chmod +x $INSTALL_DIR/app.py
+
+# Create systemd service
+log "Creating systemd service..."
+cat > /etc/systemd/system/$SERVICE_NAME.service << EOF
+[Unit]
+Description=NetProbe Pi Network Diagnostics System
+After=network.target
+
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=$INSTALL_DIR
+ExecStart=$INSTALL_DIR/venv/bin/python $INSTALL_DIR/app.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable and start the service
+log "Enabling and starting service..."
+systemctl daemon-reload
+systemctl enable $SERVICE_NAME
+systemctl start $SERVICE_NAME
+
+# Set up first boot script to run on next boot
+log "Setting up first boot script..."
+mkdir -p /etc/netprobe
+cp $INSTALL_DIR/scripts/first_boot.sh /etc/netprobe/
+chmod +x /etc/netprobe/first_boot.sh
+
+# Add first boot script to rc.local
+if [ -f /etc/rc.local ]; then
+    sed -i '/exit 0/i\/etc/netprobe/first_boot.sh &' /etc/rc.local
+else
+    cat > /etc/rc.local << EOF
+#!/bin/sh -e
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# NetProbe Pi additions
+/etc/netprobe/first_boot.sh &
+
+exit 0
+EOF
+    chmod +x /etc/rc.local
+fi
+
+# Create config directory and default config
+mkdir -p /etc/netprobe
+if [ ! -f /etc/netprobe/config.yaml ]; then
+    cat > /etc/netprobe/config.yaml << EOF
+# NetProbe Pi - Default Configuration
+network:
+  interface: eth0
+  poll_interval: 5
+  auto_run_on_connect: true
+  default_plugins:
+    - ip_info
+    - ping_test
+  monitor_method: poll
+
+security:
+  allow_eth0_access: false
+  ssh_keypair_gen: true
+
+web:
+  port: 80
+  host: 0.0.0.0
+  session_timeout: 3600
+  auth_required: true
+
+logging:
+  directory: /var/log/netprobe
+  level: INFO
+  max_logs: 100
+EOF
+fi
+
+# Final success message
+log "NetProbe Pi has been successfully installed!"
+log "The web interface is accessible at: http://netprobe.local"
+log "Default password will be set on first login"
+
+exit 0
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# By default this script does nothing.
+
+/etc/netprobe/first_boot.sh &
+
+exit 0
+EOF
+    chmod +x /etc/rc.local
+fi
+
+log "Installation completed successfully!"
+log "Access the web dashboard at http://netprobe.local or http://<IP_ADDRESS>"
+log "Default login credentials:"
+log "  Username: admin"
+log "  Password: You will be prompted to set a password on first login"
+
+# Display installation summary
+echo "============================================="
+echo "NetProbe Pi Installation Summary"
+echo "============================================="
+echo "Installation directory: $INSTALL_DIR"
+echo "Log directory: /var/log/netprobe"
+echo "Service name: $SERVICE_NAME"
+echo "Dashboard URL: http://netprobe.local"
+echo "============================================="`
