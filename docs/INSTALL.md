@@ -1,53 +1,37 @@
 # Installation Guide for NetProbe Pi
 
-This guide will walk you through setting up NetProbe Pi on a Raspberry Pi Zero 2 W.
+This guide will walk you through setting up NetProbe Pi on a Raspberry Pi Zero 2 W or any Debian-based system.
 
 ## Prerequisites
 
-- Raspberry Pi Zero 2 W
+- Raspberry Pi Zero 2 W (or any Debian-based system)
 - MicroSD card (at least 8GB)
 - USB-Ethernet adapter
 - Power supply for Raspberry Pi
 - Computer with SD card reader
 - WiFi network for admin access
 
-## Step 1: Prepare the SD Card
+## Installation Methods
 
-1. Download the latest Raspberry Pi OS Lite from the [Raspberry Pi website](https://www.raspberrypi.org/software/operating-systems/)
-2. Flash the OS to your microSD card using the [Raspberry Pi Imager](https://www.raspberrypi.org/software/)
-3. After flashing, re-insert the SD card into your computer
+### Method 1: One-Line Direct Installation (Recommended)
 
-## Step 2: Enable SSH and Configure WiFi
+This is the simplest way to install NetProbe Pi. Run the following command on your system:
 
-1. Create an empty file named `ssh` in the boot partition
-2. Create a file named `wpa_supplicant.conf` in the boot partition with the following content:
-
-```
-country=US
-ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
-update_config=1
-
-network={
-    ssid="YOUR_WIFI_NAME"
-    psk="YOUR_WIFI_PASSWORD"
-    key_mgmt=WPA-PSK
-}
+```bash
+curl -sSL https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/direct_install.sh | sudo bash
 ```
 
-3. Replace `YOUR_WIFI_NAME` and `YOUR_WIFI_PASSWORD` with your actual WiFi credentials
-4. Save the file and eject the SD card safely
+This script will:
+1. Download the NetProbe Pi repository
+2. Install all required dependencies
+3. Set up the service
+4. Configure the system for first boot
 
-## Step 3: Boot and Connect to Raspberry Pi
+Once the installation is complete, you can access the web interface at http://netprobe.local or the IP address of your device.
 
-1. Insert the SD card into your Raspberry Pi Zero 2 W
-2. Connect the USB-Ethernet adapter
-3. Power on the Raspberry Pi
-4. Wait for it to boot and connect to your WiFi network
-5. Find the IP address of your Raspberry Pi on your network (using your router's admin panel or a network scanner)
-6. Connect to your Raspberry Pi via SSH:
-   ```
-   ssh pi@<IP_ADDRESS>
-   ```
+### Method 2: Manual Installation
+
+If you prefer to perform a manual installation or if you're having issues with the one-line installer:
    Default password is `raspberry`
 
 ## Step 4: Install NetProbe Pi
@@ -82,170 +66,91 @@ wget -q https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/instal
    sudo apt update && sudo apt upgrade -y
    ```
 
-2. Install wget and unzip:
+2. Install Git:
    ```bash
-   sudo apt install wget unzip -y
+   sudo apt install -y git
    ```
 
-3. Download and extract the NetProbe Pi repository:
+3. Clone the repository:
    ```bash
-   cd /tmp
-   wget https://github.com/raf181/NetScout-Pi/archive/refs/heads/main.zip -O netscout.zip
-   unzip netscout.zip
-   cd NetScout-Pi-main
+   git clone https://github.com/raf181/NetScout-Pi.git
    ```
 
-4. Run the installation script:
+4. Navigate to the repository directory:
    ```bash
-   sudo ./scripts/install.sh
+   cd NetScout-Pi
    ```
 
-5. Follow the prompts to complete the installation
-
-### Direct Installation
-
-For the simplest installation method, run this single command:
-
-```bash
-curl -sSL https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/direct_install.sh | sudo bash
-```
-
-This command:
-1. Downloads the installer script using curl
-2. Runs it with sudo permissions
-3. Handles the entire installation process automatically
-
-This is the recommended method for most users.
-
-## Step 5: Access the Web Dashboard
-
-After installation completes and the system reboots:
-
-1. The NetProbe Pi will create its own WiFi network
-   - SSID: `NetProbe`
-   - Password: `netprobe123`
-
-2. Connect your device (laptop, smartphone, tablet) to this WiFi network
-
-3. Open a web browser and navigate to:
-   - http://netprobe.local
-   - or http://192.168.4.1
-
-4. On first access, you'll be prompted to set an administrator password
-
-5. After setting the password, you'll have full access to the dashboard
-
-## Alternative GitHub Access Methods
-
-If you encounter authentication issues when cloning the repository, you can use one of these methods:
-
-### Method 1: Use HTTPS with a Personal Access Token (PAT)
-
-1. Create a Personal Access Token on GitHub:
-   - Go to GitHub → Settings → Developer Settings → Personal Access Tokens
-   - Generate a new token with 'repo' scope
-   - Copy the token
-
-2. Use the token when cloning:
-
+5. Run the installation script:
    ```bash
-   git clone https://[USERNAME]:[TOKEN]@github.com/raf181/NetScout-Pi.git
+   sudo bash scripts/install.sh
    ```
-
-### Method 2: Use SSH
-
-1. Generate an SSH key:
-
-   ```bash
-   ssh-keygen -t ed25519 -C "your_email@example.com"
-   ```
-
-2. Add the key to your SSH agent:
-
-   ```bash
-   eval "$(ssh-agent -s)"
-   ssh-add ~/.ssh/id_ed25519
-   ```
-
-3. Add the SSH key to your GitHub account:
-   - Copy the public key: `cat ~/.ssh/id_ed25519.pub`
-   - Go to GitHub → Settings → SSH and GPG keys → New SSH key
-   - Paste your key and save
-
-4. Clone using SSH:
-
-   ```bash
-   git clone git@github.com:raf181/NetScout-Pi.git
-   ```
-
-### Method 3: Download ZIP
-
-If you're just looking to install, you can download the ZIP file directly:
-
-   ```bash
-   wget https://github.com/raf181/NetScout-Pi/archive/refs/heads/main.zip
-   unzip main.zip
-   cd NetScout-Pi-main
-   ```
-
-## Security Recommendations
-
-1. Change the default SSH password:
-   ```
-   passwd
-   ```
-
-2. Set up SSH key authentication and disable password login
-3. Keep your Raspberry Pi OS updated regularly
-4. Ensure your WiFi network has strong security (WPA2 or WPA3)
 
 ## Troubleshooting
 
-### Installation Issues
+### "Authentication failed for GitHub" Error
 
-1. **Authentication errors when cloning the repository**
-   - The installation scripts now use direct ZIP download instead of git clone to avoid authentication issues
-
-2. **"User 'pi' not found" errors**
-   - The installation scripts automatically detect and use the current user if 'pi' doesn't exist
-   - No action needed - this is handled automatically
-
-3. **Cannot access dashboard after installation**
-   - Make sure you're connected to the 'NetProbe' WiFi network
-   - Try accessing via IP address (192.168.4.1) if hostname resolution fails
-   - Check if the service is running: `sudo systemctl status netprobe`
-   - Check logs: `sudo journalctl -u netprobe`
-
-4. **WiFi network not appearing**
-   - Ensure your Raspberry Pi model has built-in WiFi
-   - Check hostapd status: `sudo systemctl status hostapd`
-   - Check configuration: `sudo cat /etc/hostapd/hostapd.conf`
-
-5. **Reset to factory defaults**
-   If you encounter serious issues, you can reset the system to factory defaults:
-   ```bash
-   sudo /opt/netprobe/scripts/reset.sh
-   ```
-
-### Updating NetProbe Pi
-
-To update to the latest version:
+If you see an error about GitHub authentication when cloning the repository, use the HTTPS URL instead:
 
 ```bash
-sudo /opt/netprobe/scripts/auto_update.sh
+git clone https://github.com/raf181/NetScout-Pi.git
 ```
 
-### Manual Installation on Non-Raspberry Pi Systems
+Or download the ZIP file directly:
 
-NetProbe Pi is designed primarily for Raspberry Pi systems but can be installed on other Debian-based Linux systems with some modifications:
+```bash
+wget https://github.com/raf181/NetScout-Pi/archive/refs/heads/main.zip
+unzip main.zip
+cd NetScout-Pi-main
+```
 
-1. Download the repository as described in Option 2 of Step 4
-2. Edit the installation script to match your system requirements
-3. Run the modified installation script
+### "Externally Managed Environment" Error
 
-Note that some features (like WiFi AP mode) may require additional configuration on non-Raspberry Pi systems.
+If you encounter an error about "externally-managed-environment" when installing Python packages, the script has been updated to handle this by:
 
-## Additional Resources
+1. Installing packages via apt when possible
+2. Using the `--break-system-packages` flag for pip when necessary
 
-- [Raspberry Pi Documentation](https://www.raspberrypi.org/documentation/)
-- [NetProbe Pi GitHub Repository](https://github.com/raf181/NetScout-Pi)
+If you're still having issues, you can install the packages manually:
+
+```bash
+sudo apt install -y python3-flask python3-socketio python3-dotenv python3-click python3-watchdog python3-psutil python3-netifaces python3-yaml python3-jsonschema python3-bcrypt python3-jwt python3-requests python3-paho-mqtt
+```
+
+### User Permissions Issues
+
+The installation script automatically detects if the 'pi' user exists and uses the current user if not. If you see permission errors, you can manually set permissions:
+
+```bash
+sudo chown -R $(whoami):$(whoami) /opt/netprobe
+sudo chown -R $(whoami):$(whoami) /var/log/netprobe
+```
+
+## First Boot Configuration
+
+On first boot, NetProbe Pi will:
+
+1. Set the hostname to "netprobe"
+2. Configure mDNS for "netprobe.local"
+3. Set up WiFi as an access point (SSID: "NetProbe", Password: "netprobe123")
+4. Generate SSH keys for secure access
+5. Configure network interfaces
+
+## Accessing the Web Interface
+
+After installation and first boot:
+
+1. Connect to the "NetProbe" WiFi network (Password: "netprobe123")
+2. Open a web browser and navigate to http://netprobe.local or http://192.168.4.1
+3. Set your admin password on first login
+
+## System Management
+
+- Check service status: `sudo systemctl status netprobe`
+- View logs: `sudo journalctl -u netprobe`
+- Restart service: `sudo systemctl restart netprobe`
+- Stop service: `sudo systemctl stop netprobe`
+
+## Additional Information
+
+For more details on how to use NetProbe Pi, refer to the [User Manual](USER_MANUAL.md).

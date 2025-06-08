@@ -60,9 +60,19 @@ mkdir -p /var/log/netprobe
 log "Copying files to installation directory..."
 cp -r ./* $INSTALL_DIR/
 
-# Install Python dependencies globally
+# Install Python dependencies
 log "Installing Python dependencies..."
-pip3 install -r $INSTALL_DIR/requirements.txt
+# First try to install with apt (for Debian-based systems)
+log "Attempting to install Python packages with apt..."
+apt-get install -y \
+    python3-flask python3-socketio python3-dotenv python3-click python3-watchdog \
+    python3-psutil python3-netifaces python3-yaml python3-jsonschema \
+    python3-bcrypt python3-jwt python3-requests python3-paho-mqtt
+
+# If apt installation fails for some packages, try pip with --break-system-packages
+log "Installing remaining packages with pip..."
+# Use --break-system-packages to override the externally managed environment
+pip3 install --break-system-packages -r $INSTALL_DIR/requirements.txt
 
 # Set permissions
 log "Setting permissions..."
