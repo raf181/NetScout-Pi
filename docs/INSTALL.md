@@ -64,7 +64,7 @@ network={
 
 3. Clone the NetProbe Pi repository:
    ```
-   git clone https://github.com/yourusername/NetProbe-Pi.git
+   git clone https://github.com/raf181/NetScout-Pi.git
    ```
 
 4. Navigate to the project directory:
@@ -88,6 +88,59 @@ network={
    - Password: `netprobe`
    
    (You will be prompted to change these on first login)
+
+## Alternative GitHub Access Methods
+
+If you encounter authentication issues when cloning the repository, you can use one of these methods:
+
+### Method 1: Use HTTPS with a Personal Access Token (PAT)
+
+1. Create a Personal Access Token on GitHub:
+   - Go to GitHub → Settings → Developer Settings → Personal Access Tokens
+   - Generate a new token with 'repo' scope
+   - Copy the token
+
+2. Use the token when cloning:
+
+   ```bash
+   git clone https://[USERNAME]:[TOKEN]@github.com/raf181/NetScout-Pi.git
+   ```
+
+### Method 2: Use SSH
+
+1. Generate an SSH key:
+
+   ```bash
+   ssh-keygen -t ed25519 -C "your_email@example.com"
+   ```
+
+2. Add the key to your SSH agent:
+
+   ```bash
+   eval "$(ssh-agent -s)"
+   ssh-add ~/.ssh/id_ed25519
+   ```
+
+3. Add the SSH key to your GitHub account:
+   - Copy the public key: `cat ~/.ssh/id_ed25519.pub`
+   - Go to GitHub → Settings → SSH and GPG keys → New SSH key
+   - Paste your key and save
+
+4. Clone using SSH:
+
+   ```bash
+   git clone git@github.com:raf181/NetScout-Pi.git
+   ```
+
+### Method 3: Download ZIP
+
+If you're just looking to install, you can download the ZIP file directly:
+
+   ```bash
+   wget https://github.com/raf181/NetScout-Pi/archive/refs/heads/main.zip
+   unzip main.zip
+   cd NetScout-Pi-main
+   ```
 
 ## Security Recommendations
 

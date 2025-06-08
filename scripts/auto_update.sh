@@ -5,7 +5,7 @@ set -e
 
 LOG_FILE="/var/log/netprobe/update.log"
 INSTALL_DIR="/opt/netprobe"
-REPO_URL="https://github.com/yourusername/NetScout-Pi.git"
+REPO_URL="https://github.com/raf181/NetScout-Pi.git"
 BACKUP_DIR="/opt/netprobe_backup"
 SERVICE_NAME="netprobe"
 
@@ -31,7 +31,13 @@ log "Created temporary directory: $TEMP_DIR"
 
 # Clone repository to temporary directory
 log "Cloning repository to check for updates..."
-git clone --quiet $REPO_URL $TEMP_DIR
+if ! git clone --depth 1 --quiet $REPO_URL $TEMP_DIR; then
+    log "Failed to clone repository using git. Trying to download ZIP file..."
+    wget -q https://github.com/raf181/NetScout-Pi/archive/refs/heads/main.zip -O $TEMP_DIR/netprobe.zip
+    unzip -q $TEMP_DIR/netprobe.zip -d $TEMP_DIR
+    mv $TEMP_DIR/NetScout-Pi-main/* $TEMP_DIR/
+    rm -rf $TEMP_DIR/NetScout-Pi-main $TEMP_DIR/netprobe.zip
+fi
 
 # Get current version
 CURRENT_VERSION=$(cat $INSTALL_DIR/VERSION 2>/dev/null || echo "0.0.0")

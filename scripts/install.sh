@@ -33,7 +33,8 @@ apt-get install -y \
     python3 python3-pip python3-venv \
     git nmap tcpdump arp-scan speedtest-cli \
     ifplugd avahi-daemon iproute2 \
-    build-essential libffi-dev libssl-dev
+    build-essential libffi-dev libssl-dev \
+    wget unzip curl
 
 # Create installation directory
 log "Creating installation directory..."

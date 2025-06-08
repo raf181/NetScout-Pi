@@ -21,7 +21,7 @@ apt-get upgrade -y
 
 # Install Git and other essential tools
 echo "Installing Git and essential tools..."
-apt-get install -y git curl wget net-tools
+apt-get install -y git curl wget net-tools unzip
 
 # Configure network interfaces
 echo "Configuring network interfaces..."
@@ -86,7 +86,12 @@ systemctl start ssh
 # Clone NetProbe Pi repository
 echo "Cloning NetProbe Pi repository..."
 cd /tmp
-git clone https://github.com/yourusername/NetScout-Pi.git netprobe
+git clone --depth 1 https://github.com/raf181/NetScout-Pi.git netprobe || {
+  echo "Failed to clone repository using HTTPS. Trying to download ZIP file..."
+  wget https://github.com/raf181/NetScout-Pi/archive/refs/heads/main.zip -O netprobe.zip
+  unzip netprobe.zip
+  mv NetScout-Pi-main netprobe
+}
 cd netprobe
 
 # Run installer script

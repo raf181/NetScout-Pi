@@ -118,6 +118,10 @@ A comprehensive network diagnostics system for Raspberry Pi Zero 2 W that provid
 
 7. Connect to the `NetProbe` WiFi network and access the dashboard
 
+### Note on GitHub Authentication
+
+GitHub no longer supports password authentication for git operations. The scripts are designed to handle this automatically by using alternative methods if direct cloning fails. If you're manually cloning the repository, please refer to the [Installation Guide](docs/INSTALL.md) for detailed authentication options.
+
 ## 📖 Documentation
 
 Full documentation is available in the `docs/` directory:
