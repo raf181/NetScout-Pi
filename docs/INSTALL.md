@@ -256,3 +256,74 @@ For interactive troubleshooting, you can use our menu-based fix script:
 ```bash
 sudo bash /opt/netprobe/scripts/fix_netprobe.sh
 ```
+
+## Common Installation Issues
+
+### WiFi Access Point Not Appearing
+
+If your WiFi access point isn't appearing after installation, try the enhanced auto-fix script:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/autofix_v2.sh | sudo bash
+```
+
+This improved script handles:
+- Systems without dhcpcd (using NetworkManager instead)
+- WiFi interface detection issues 
+- Locale configuration problems
+- Hostname resolution issues
+
+### Dashboard Not Available After Installation
+
+If you've connected to the NetProbe WiFi network but can't access the dashboard:
+
+1. Check if the service is running:
+   ```bash
+   sudo systemctl status netprobe
+   ```
+
+2. If you see errors related to Python packages, install them system-wide:
+   ```bash
+   sudo apt-get install python3-flask python3-socketio python3-dotenv python3-click
+   ```
+
+3. Check the application logs:
+   ```bash
+   sudo journalctl -u netprobe -n 50
+   ```
+
+### Manual Network Configuration
+
+If the automatic setup doesn't work, you can manually configure your wireless interface:
+
+```bash
+# Set static IP on your wireless interface
+sudo ip addr add 192.168.4.1/24 dev wlan0
+
+# Bring up the interface
+sudo ip link set wlan0 up
+
+# Start hostapd and dnsmasq
+sudo systemctl restart hostapd
+sudo systemctl restart dnsmasq
+```
+
+### Issues with "unable to resolve host"
+
+If you see "sudo: unable to resolve host netprobe", fix your /etc/hosts file:
+
+```bash
+echo "127.0.1.1 netprobe" | sudo tee -a /etc/hosts
+```
+
+### Other Network Issues
+
+To completely reset your network configuration:
+
+```bash
+# Restart network-related services
+sudo systemctl restart NetworkManager  # If using NetworkManager
+sudo systemctl restart networking      # If using traditional networking
+sudo systemctl restart hostapd
+sudo systemctl restart dnsmasq
+```
