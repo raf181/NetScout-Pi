@@ -24,6 +24,22 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# Determine the user
+if id "pi" &>/dev/null; then
+    USER="pi"
+    GROUP="pi"
+else
+    # Use current user (non-root) or the user who sudo'ed
+    if [ -n "$SUDO_USER" ]; then
+        USER="$SUDO_USER"
+        GROUP="$SUDO_USER"
+    else
+        USER=$(whoami)
+        GROUP=$(whoami)
+    fi
+    log "User 'pi' not found, using user '$USER' instead"
+fi
+
 # Prompt for confirmation
 echo "WARNING: This will reset NetProbe Pi to factory defaults."
 echo "All custom plugins, sequences, and settings will be lost."

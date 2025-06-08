@@ -52,42 +52,88 @@ network={
 
 ## Step 4: Install NetProbe Pi
 
+### Option 1: Quick Installation (Recommended)
+
+Run the following command to download and install NetProbe Pi directly:
+
+```bash
+wget -q https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/quick_install.sh -O quick_install.sh && sudo bash quick_install.sh
+```
+
+This method:
+- Downloads the repository directly as a ZIP file
+- Installs all dependencies
+- Sets up the service
+- Works even if git is not installed
+- Automatically adapts to your user account
+
+### Option 2: One-Line Installation
+
+If you prefer the standard installation process:
+
+```bash
+wget -q https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/install_oneline.sh -O install_oneline.sh && sudo bash install_oneline.sh
+```
+
+### Option 3: Manual Installation
+
 1. Update your system:
-   ```
+   ```bash
    sudo apt update && sudo apt upgrade -y
    ```
 
-2. Install git:
-   ```
-   sudo apt install git -y
-   ```
-
-3. Clone the NetProbe Pi repository:
-   ```
-   git clone https://github.com/raf181/NetScout-Pi.git
+2. Install wget and unzip:
+   ```bash
+   sudo apt install wget unzip -y
    ```
 
-4. Navigate to the project directory:
-   ```
-   cd NetProbe-Pi
+3. Download and extract the NetProbe Pi repository:
+   ```bash
+   cd /tmp
+   wget https://github.com/raf181/NetScout-Pi/archive/refs/heads/main.zip -O netscout.zip
+   unzip netscout.zip
+   cd NetScout-Pi-main
    ```
 
-5. Run the installation script:
-   ```
+4. Run the installation script:
+   ```bash
    sudo ./scripts/install.sh
    ```
 
-6. Follow the prompts to complete the installation
+5. Follow the prompts to complete the installation
+
+### Direct Installation
+
+For the simplest installation method, run this single command:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/direct_install.sh | sudo bash
+```
+
+This command:
+1. Downloads the installer script using curl
+2. Runs it with sudo permissions
+3. Handles the entire installation process automatically
+
+This is the recommended method for most users.
 
 ## Step 5: Access the Web Dashboard
 
-1. After installation, the NetProbe Pi will automatically set up a web server
-2. You can access the dashboard at `http://netprobe.local` or `http://<IP_ADDRESS>`
-3. Log in with the default credentials:
-   - Username: `admin`
-   - Password: `netprobe`
-   
-   (You will be prompted to change these on first login)
+After installation completes and the system reboots:
+
+1. The NetProbe Pi will create its own WiFi network
+   - SSID: `NetProbe`
+   - Password: `netprobe123`
+
+2. Connect your device (laptop, smartphone, tablet) to this WiFi network
+
+3. Open a web browser and navigate to:
+   - http://netprobe.local
+   - or http://192.168.4.1
+
+4. On first access, you'll be prompted to set an administrator password
+
+5. After setting the password, you'll have full access to the dashboard
 
 ## Alternative GitHub Access Methods
 
@@ -155,15 +201,49 @@ If you're just looking to install, you can download the ZIP file directly:
 
 ## Troubleshooting
 
-- If you can't connect to WiFi, check your `wpa_supplicant.conf` file
-- If the web dashboard isn't accessible, check if the service is running:
-  ```
-  sudo systemctl status netprobe
-  ```
-- For log information:
-  ```
-  sudo journalctl -u netprobe
-  ```
+### Installation Issues
+
+1. **Authentication errors when cloning the repository**
+   - The installation scripts now use direct ZIP download instead of git clone to avoid authentication issues
+
+2. **"User 'pi' not found" errors**
+   - The installation scripts automatically detect and use the current user if 'pi' doesn't exist
+   - No action needed - this is handled automatically
+
+3. **Cannot access dashboard after installation**
+   - Make sure you're connected to the 'NetProbe' WiFi network
+   - Try accessing via IP address (192.168.4.1) if hostname resolution fails
+   - Check if the service is running: `sudo systemctl status netprobe`
+   - Check logs: `sudo journalctl -u netprobe`
+
+4. **WiFi network not appearing**
+   - Ensure your Raspberry Pi model has built-in WiFi
+   - Check hostapd status: `sudo systemctl status hostapd`
+   - Check configuration: `sudo cat /etc/hostapd/hostapd.conf`
+
+5. **Reset to factory defaults**
+   If you encounter serious issues, you can reset the system to factory defaults:
+   ```bash
+   sudo /opt/netprobe/scripts/reset.sh
+   ```
+
+### Updating NetProbe Pi
+
+To update to the latest version:
+
+```bash
+sudo /opt/netprobe/scripts/auto_update.sh
+```
+
+### Manual Installation on Non-Raspberry Pi Systems
+
+NetProbe Pi is designed primarily for Raspberry Pi systems but can be installed on other Debian-based Linux systems with some modifications:
+
+1. Download the repository as described in Option 2 of Step 4
+2. Edit the installation script to match your system requirements
+3. Run the modified installation script
+
+Note that some features (like WiFi AP mode) may require additional configuration on non-Raspberry Pi systems.
 
 ## Additional Resources
 

@@ -14,6 +14,15 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# Detect if system is Raspberry Pi
+if [ -f /proc/device-tree/model ] && grep -q "Raspberry Pi" /proc/device-tree/model; then
+    IS_RASPBERRY_PI=true
+    echo "Detected Raspberry Pi system"
+else
+    IS_RASPBERRY_PI=false
+    echo "Non-Raspberry Pi system detected. Some features may not work as expected."
+fi
+
 # Update and upgrade system
 echo "Updating system..."
 apt-get update
@@ -21,11 +30,12 @@ apt-get upgrade -y
 
 # Install Git and other essential tools
 echo "Installing Git and essential tools..."
-apt-get install -y git curl wget net-tools unzip
+apt-get install -y git curl wget net-tools unzip python3 python3-pip
 
-# Configure network interfaces
-echo "Configuring network interfaces..."
-cat > /etc/dhcpcd.conf << EOF
+# Configure network interfaces if Raspberry Pi
+if [ "$IS_RASPBERRY_PI" = true ]; then
+    echo "Configuring network interfaces..."
+    cat > /etc/dhcpcd.conf << EOF
 # NetProbe Pi network configuration
 
 # Default behavior for all interfaces
@@ -78,30 +88,57 @@ domain=local
 address=/netprobe.local/192.168.4.1
 EOF
 
+# Close the conditional for Raspberry Pi
+fi
+
 # Enable SSH
 echo "Enabling SSH..."
 systemctl enable ssh
 systemctl start ssh
 
-# Clone NetProbe Pi repository
-echo "Cloning NetProbe Pi repository..."
+# Download NetProbe Pi repository
+echo "Downloading NetProbe Pi repository..."
 cd /tmp
-git clone --depth 1 https://github.com/raf181/NetScout-Pi.git netprobe || {
-  echo "Failed to clone repository using HTTPS. Trying to download ZIP file..."
-  wget https://github.com/raf181/NetScout-Pi/archive/refs/heads/main.zip -O netprobe.zip
-  unzip netprobe.zip
-  mv NetScout-Pi-main netprobe
-}
-cd netprobe
+
+# Download the repository as a ZIP file (doesn't require authentication)
+echo "Downloading repository as ZIP..."
+wget -q https://github.com/raf181/NetScout-Pi/archive/refs/heads/main.zip -O netscout.zip
+
+# Create a clean directory for extraction
+echo "Extracting files..."
+rm -rf NetScout-Pi-main
+unzip -q netscout.zip
+cd NetScout-Pi-main
 
 # Run installer script
 echo "Running NetProbe Pi installer..."
 bash scripts/install.sh
 
+# Clean up
+cd /tmp
+rm -rf NetScout-Pi-main netscout.zip
+
+# Final message
 echo
-echo "NetProbe Pi setup completed successfully!"
-echo "Please reboot the system to complete the installation."
-echo "After reboot, connect to the 'NetProbe' WiFi network and access the dashboard at http://netprobe.local"
+echo "============================================="
+echo "NetProbe Pi Setup Complete"
+echo "============================================="
+echo "The system will now reboot to complete setup."
+echo "After reboot:"
+echo "1. Connect to the 'NetProbe' WiFi network"
+echo "   SSID: NetProbe"
+echo "   Password: netprobe123"
+echo "2. Access the dashboard at http://netprobe.local"
+echo "3. Set your admin password on first login"
+echo "============================================="
+echo "Rebooting in 10 seconds... Press Ctrl+C to cancel"
 echo
 
-exit 0
+# Countdown before reboot
+for i in {10..1}; do
+  echo -n "$i... "
+  sleep 1
+done
+echo
+
+reboot

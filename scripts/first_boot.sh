@@ -6,7 +6,26 @@ set -e
 
 LOG_FILE="/var/log/netprobe/first_boot.log"
 NETPROBE_DIR="/opt/netprobe"
-SSH_DIR="/home/pi/.ssh"
+
+# Determine the user
+if id "pi" &>/dev/null; then
+    USER="pi"
+    GROUP="pi"
+    SSH_DIR="/home/pi/.ssh"
+else
+    # Use current user (non-root) or the user who sudo'ed
+    if [ -n "$SUDO_USER" ]; then
+        USER="$SUDO_USER"
+        GROUP="$SUDO_USER"
+    else
+        USER=$(whoami)
+        GROUP=$(whoami)
+    fi
+    SSH_DIR="/home/$USER/.ssh"
+    if [ "$USER" = "root" ]; then
+        SSH_DIR="/root/.ssh"
+    fi
+fi
 
 # Create log directory
 mkdir -p /var/log/netprobe
@@ -31,12 +50,19 @@ apt-get install -y python3-pip python3-venv git dnsmasq hostapd
 
 # Generate SSH key if it doesn't exist
 if [ ! -f "${SSH_DIR}/id_rsa" ]; then
-    log "Generating SSH key pair..."
+    log "Generating SSH key pair for user $USER..."
     mkdir -p ${SSH_DIR}
     ssh-keygen -t rsa -b 4096 -f ${SSH_DIR}/id_rsa -N "" -C "netprobe@raspberrypi"
     cat ${SSH_DIR}/id_rsa.pub >> ${SSH_DIR}/authorized_keys
     chmod 600 ${SSH_DIR}/authorized_keys
-    chown -R pi:pi ${SSH_DIR}
+    
+    if getent passwd $USER > /dev/null && getent group $GROUP > /dev/null; then
+        chown -R $USER:$GROUP ${SSH_DIR}
+        log "SSH directory permissions set to $USER:$GROUP"
+    else
+        log "Warning: User $USER or group $GROUP not found, skipping permission setting for SSH directory"
+    fi
+    
     log "SSH key pair generated"
 fi
 

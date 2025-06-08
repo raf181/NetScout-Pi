@@ -79,12 +79,12 @@ A comprehensive network diagnostics system for Raspberry Pi Zero 2 W that provid
 5. Download and run the setup script:
 
     ```bash
-    curl -sSL https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/setup.sh | sudo bash
+    wget -q -O - https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/setup.sh | sudo bash
     ```
 
 6. After the installation is complete, the Raspberry Pi will reboot
 7. Connect to the `NetProbe` WiFi network (password: `netprobe123`)
-8. Access the dashboard at http://netprobe.local
+8. Access the dashboard at `http://netprobe.local`
 9. Set your admin password during the first login
 
 ### Option 2: Manual Installation

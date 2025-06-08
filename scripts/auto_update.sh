@@ -17,6 +17,22 @@ log() {
     echo "$(date): $1" | tee -a $LOG_FILE
 }
 
+# Determine the user
+if id "pi" &>/dev/null; then
+    USER="pi"
+    GROUP="pi"
+else
+    # Use current user (non-root) or the user who sudo'ed
+    if [ -n "$SUDO_USER" ]; then
+        USER="$SUDO_USER"
+        GROUP="$SUDO_USER"
+    else
+        USER=$(whoami)
+        GROUP=$(whoami)
+    fi
+    log "User 'pi' not found, using user '$USER' instead"
+fi
+
 log "Starting NetProbe Pi update check"
 
 # Check if running as root
@@ -29,15 +45,12 @@ fi
 TEMP_DIR=$(mktemp -d)
 log "Created temporary directory: $TEMP_DIR"
 
-# Clone repository to temporary directory
-log "Cloning repository to check for updates..."
-if ! git clone --depth 1 --quiet $REPO_URL $TEMP_DIR; then
-    log "Failed to clone repository using git. Trying to download ZIP file..."
-    wget -q https://github.com/raf181/NetScout-Pi/archive/refs/heads/main.zip -O $TEMP_DIR/netprobe.zip
-    unzip -q $TEMP_DIR/netprobe.zip -d $TEMP_DIR
-    mv $TEMP_DIR/NetScout-Pi-main/* $TEMP_DIR/
-    rm -rf $TEMP_DIR/NetScout-Pi-main $TEMP_DIR/netprobe.zip
-fi
+# Download repository as ZIP to avoid authentication issues
+log "Downloading repository to check for updates..."
+wget -q https://github.com/raf181/NetScout-Pi/archive/refs/heads/main.zip -O $TEMP_DIR/netprobe.zip
+unzip -q $TEMP_DIR/netprobe.zip -d $TEMP_DIR
+mv $TEMP_DIR/NetScout-Pi-main/* $TEMP_DIR/
+rm -rf $TEMP_DIR/NetScout-Pi-main $TEMP_DIR/netprobe.zip
 
 # Get current version
 CURRENT_VERSION=$(cat $INSTALL_DIR/VERSION 2>/dev/null || echo "0.0.0")
@@ -68,16 +81,20 @@ systemctl stop $SERVICE_NAME
 
 # Update files
 log "Updating files..."
-rsync -av --exclude '.git' --exclude 'venv' $TEMP_DIR/ $INSTALL_DIR/
+rsync -av --exclude '.git' $TEMP_DIR/ $INSTALL_DIR/
 
 # Update dependencies
 log "Updating dependencies..."
-$INSTALL_DIR/venv/bin/pip install --upgrade pip
-$INSTALL_DIR/venv/bin/pip install -r $INSTALL_DIR/requirements.txt
+pip3 install --upgrade -r $INSTALL_DIR/requirements.txt
 
 # Fix permissions
 log "Setting permissions..."
-chown -R pi:pi $INSTALL_DIR
+if getent passwd $USER > /dev/null && getent group $GROUP > /dev/null; then
+    chown -R $USER:$GROUP $INSTALL_DIR
+    log "Permissions set to $USER:$GROUP"
+else
+    log "Warning: User $USER or group $GROUP not found, skipping permission setting"
+fi
 chmod +x $INSTALL_DIR/scripts/*.sh
 chmod +x $INSTALL_DIR/app.py
 

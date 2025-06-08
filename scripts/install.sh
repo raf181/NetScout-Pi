@@ -6,15 +6,30 @@ set -e
 LOG_FILE="./install.log"
 INSTALL_DIR="/opt/netprobe"
 SERVICE_NAME="netprobe"
-USER="pi"
-GROUP="pi"
 
 # Log function
 log() {
     echo "$(date): $1" | tee -a $LOG_FILE
 }
 
+# Check if pi user exists, otherwise use current user
+if id "pi" &>/dev/null; then
+    USER="pi"
+    GROUP="pi"
+else
+    # Use current user (non-root) or the user who sudo'ed
+    if [ -n "$SUDO_USER" ]; then
+        USER="$SUDO_USER"
+        GROUP="$SUDO_USER"
+    else
+        USER=$(whoami)
+        GROUP=$(whoami)
+    fi
+    log "User 'pi' not found, using user '$USER' instead"
+fi
+
 log "Starting NetProbe Pi installation"
+log "Installation will use user: $USER"
 
 # Check if running as root
 if [ "$(id -u)" -ne 0 ]; then
@@ -45,16 +60,19 @@ mkdir -p /var/log/netprobe
 log "Copying files to installation directory..."
 cp -r ./* $INSTALL_DIR/
 
-# Set up Python virtual environment
-log "Setting up Python virtual environment..."
-python3 -m venv $INSTALL_DIR/venv
-$INSTALL_DIR/venv/bin/pip install --upgrade pip
-$INSTALL_DIR/venv/bin/pip install -r $INSTALL_DIR/requirements.txt
+# Install Python dependencies globally
+log "Installing Python dependencies..."
+pip3 install -r $INSTALL_DIR/requirements.txt
 
 # Set permissions
 log "Setting permissions..."
-chown -R $USER:$GROUP $INSTALL_DIR
-chown -R $USER:$GROUP /var/log/netprobe
+if getent passwd $USER > /dev/null && getent group $GROUP > /dev/null; then
+    chown -R $USER:$GROUP $INSTALL_DIR
+    chown -R $USER:$GROUP /var/log/netprobe
+    log "Permissions set to $USER:$GROUP"
+else
+    log "Warning: User $USER or group $GROUP not found, skipping permission setting"
+fi
 chmod +x $INSTALL_DIR/scripts/*.sh
 chmod +x $INSTALL_DIR/app.py
 
@@ -69,7 +87,7 @@ After=network.target
 Type=simple
 User=$USER
 WorkingDirectory=$INSTALL_DIR
-ExecStart=$INSTALL_DIR/venv/bin/python $INSTALL_DIR/app.py
+ExecStart=/usr/bin/python3 $INSTALL_DIR/app.py
 Restart=always
 RestartSec=10
 
@@ -141,30 +159,6 @@ logging:
 EOF
 fi
 
-# Final success message
-log "NetProbe Pi has been successfully installed!"
-log "The web interface is accessible at: http://netprobe.local"
-log "Default password will be set on first login"
-
-exit 0
-# Make sure that the script will "exit 0" on success or any other
-# value on error.
-#
-# By default this script does nothing.
-
-/etc/netprobe/first_boot.sh &
-
-exit 0
-EOF
-    chmod +x /etc/rc.local
-fi
-
-log "Installation completed successfully!"
-log "Access the web dashboard at http://netprobe.local or http://<IP_ADDRESS>"
-log "Default login credentials:"
-log "  Username: admin"
-log "  Password: You will be prompted to set a password on first login"
-
 # Display installation summary
 echo "============================================="
 echo "NetProbe Pi Installation Summary"
@@ -172,5 +166,16 @@ echo "============================================="
 echo "Installation directory: $INSTALL_DIR"
 echo "Log directory: /var/log/netprobe"
 echo "Service name: $SERVICE_NAME"
+echo "User: $USER"
 echo "Dashboard URL: http://netprobe.local"
-echo "============================================="`
+echo "============================================="
+echo "To check the service status, run: systemctl status $SERVICE_NAME"
+echo "To view logs, run: journalctl -u $SERVICE_NAME"
+echo "============================================="
+
+# Final success message
+log "NetProbe Pi has been successfully installed!"
+log "The web interface is accessible at: http://netprobe.local"
+log "Default password will be set on first login"
+
+exit 0`
