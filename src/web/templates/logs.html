@@ -1,0 +1,276 @@
+{% extends "layout.html" %}
+
+{% block title %}NetProbe Pi - System Logs{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-file-alt me-2"></i>System Logs
+                    </h5>
+                    <div>
+                        <button id="refresh-logs" class="btn btn-sm btn-light">
+                            <i class="fas fa-sync-alt me-1"></i> Refresh
+                        </button>
+                        <a href="/api/logs/export" class="btn btn-sm btn-success">
+                            <i class="fas fa-download me-1"></i> Export Logs
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="input-group">
+                                    <span class="input-group-text">Log Type</span>
+                                    <select id="log-type" class="form-select">
+                                        <option value="system">System</option>
+                                        <option value="network">Network</option>
+                                        <option value="plugins">Plugins</option>
+                                        <option value="web">Web Server</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="input-group">
+                                    <span class="input-group-text">Level</span>
+                                    <select id="log-level" class="form-select">
+                                        <option value="all">All Levels</option>
+                                        <option value="error">Error & Critical</option>
+                                        <option value="warning">Warning & Above</option>
+                                        <option value="info">Info & Above</option>
+                                        <option value="debug">Debug</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="input-group">
+                                    <span class="input-group-text">Time Range</span>
+                                    <select id="log-time" class="form-select">
+                                        <option value="24h">Last 24 Hours</option>
+                                        <option value="7d">Last 7 Days</option>
+                                        <option value="30d">Last 30 Days</option>
+                                        <option value="all">All Time</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Level</th>
+                                    <th>Source</th>
+                                    <th>Message</th>
+                                </tr>
+                            </thead>
+                            <tbody id="log-table-body">
+                                <tr>
+                                    <td colspan="4" class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2">Loading logs...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div>
+                            <span id="log-count" class="text-muted">0 entries</span>
+                        </div>
+                        <div>
+                            <button id="prev-page" class="btn btn-sm btn-outline-primary" disabled>
+                                <i class="fas fa-chevron-left"></i> Previous
+                            </button>
+                            <span id="page-info" class="mx-2">Page 1</span>
+                            <button id="next-page" class="btn btn-sm btn-outline-primary" disabled>
+                                Next <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const logTableBody = document.getElementById('log-table-body');
+    const logTypeSelect = document.getElementById('log-type');
+    const logLevelSelect = document.getElementById('log-level');
+    const logTimeSelect = document.getElementById('log-time');
+    const refreshBtn = document.getElementById('refresh-logs');
+    const logCount = document.getElementById('log-count');
+    const prevPageBtn = document.getElementById('prev-page');
+    const nextPageBtn = document.getElementById('next-page');
+    const pageInfo = document.getElementById('page-info');
+    
+    let currentPage = 1;
+    let totalPages = 1;
+    const PAGE_SIZE = 50;
+    
+    function loadLogs() {
+        // Show loading indicator
+        logTableBody.innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading logs...</p>
+                </td>
+            </tr>
+        `;
+        
+        // Get filter values
+        const logType = logTypeSelect.value;
+        const logLevel = logLevelSelect.value;
+        const timeRange = logTimeSelect.value;
+        
+        // Fetch logs from API
+        fetch(`/api/logs?type=${logType}&level=${logLevel}&time=${timeRange}&page=${currentPage}&size=${PAGE_SIZE}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to load logs');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Update log table
+                updateLogTable(data.logs);
+                
+                // Update pagination
+                totalPages = Math.ceil(data.total / PAGE_SIZE);
+                updatePagination();
+                
+                // Update log count
+                logCount.textContent = `${data.total} entries`;
+            })
+            .catch(error => {
+                // Show error message
+                logTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center text-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            ${error.message}
+                        </td>
+                    </tr>
+                `;
+                console.error('Error loading logs:', error);
+            });
+    }
+    
+    function updateLogTable(logs) {
+        if (!logs || logs.length === 0) {
+            logTableBody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No logs found with the current filters
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        logTableBody.innerHTML = '';
+        
+        logs.forEach(log => {
+            const row = document.createElement('tr');
+            
+            // Set row class based on log level
+            if (log.level === 'ERROR' || log.level === 'CRITICAL') {
+                row.className = 'table-danger';
+            } else if (log.level === 'WARNING') {
+                row.className = 'table-warning';
+            }
+            
+            // Format timestamp
+            const timestamp = new Date(log.timestamp).toLocaleString();
+            
+            row.innerHTML = `
+                <td>${timestamp}</td>
+                <td><span class="badge ${getBadgeClass(log.level)}">${log.level}</span></td>
+                <td>${log.source}</td>
+                <td>${log.message}</td>
+            `;
+            
+            logTableBody.appendChild(row);
+        });
+    }
+    
+    function getBadgeClass(level) {
+        switch (level) {
+            case 'ERROR':
+            case 'CRITICAL':
+                return 'bg-danger';
+            case 'WARNING':
+                return 'bg-warning text-dark';
+            case 'INFO':
+                return 'bg-info text-dark';
+            case 'DEBUG':
+                return 'bg-secondary';
+            default:
+                return 'bg-primary';
+        }
+    }
+    
+    function updatePagination() {
+        pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+        
+        prevPageBtn.disabled = currentPage <= 1;
+        nextPageBtn.disabled = currentPage >= totalPages;
+    }
+    
+    // Event listeners
+    refreshBtn.addEventListener('click', loadLogs);
+    
+    logTypeSelect.addEventListener('change', () => {
+        currentPage = 1;
+        loadLogs();
+    });
+    
+    logLevelSelect.addEventListener('change', () => {
+        currentPage = 1;
+        loadLogs();
+    });
+    
+    logTimeSelect.addEventListener('change', () => {
+        currentPage = 1;
+        loadLogs();
+    });
+    
+    prevPageBtn.addEventListener('click', () => {
+        if (currentPage > 1) {
+            currentPage--;
+            loadLogs();
+        }
+    });
+    
+    nextPageBtn.addEventListener('click', () => {
+        if (currentPage < totalPages) {
+            currentPage++;
+            loadLogs();
+        }
+    });
+    
+    // Initial load
+    loadLogs();
+    
+    // Set up auto-refresh every 30 seconds
+    setInterval(loadLogs, 30000);
+});
+</script>
+{% endblock %}

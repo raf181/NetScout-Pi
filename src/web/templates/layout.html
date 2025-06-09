@@ -33,14 +33,14 @@
                     </li>
                     {% if config.get('setup.completed', True) %}
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path.startswith('/plugins') %}active{% endif %}" 
-                           href="/plugins">
+                        <a class="nav-link {% if request.endpoint == 'plugins' %}active{% endif %}" 
+                           href="{{ url_for('plugins') }}">
                             <i class="fas fa-plug me-1"></i> Plugins
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path.startswith('/results') %}active{% endif %}" 
-                           href="/results">
+                        <a class="nav-link {% if request.endpoint == 'results' %}active{% endif %}" 
+                           href="{{ url_for('results') }}">
                             <i class="fas fa-clipboard-list me-1"></i> Results
                         </a>
                     </li>
@@ -51,8 +51,8 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path.startswith('/logs') %}active{% endif %}" 
-                           href="/logs">
+                        <a class="nav-link {% if request.endpoint == 'logs' %}active{% endif %}" 
+                           href="{{ url_for('logs') }}">
                             <i class="fas fa-file-alt me-1"></i> Logs
                         </a>
                     </li>
@@ -89,12 +89,19 @@
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="footer mt-auto py-3 bg-light">
+    <footer class="footer mt-auto py-3">
         <div class="container text-center">
-            <span class="text-muted">NetProbe Pi &copy; 2025 | 
-                <span id="version">Version 1.0.0</span> | 
-                <a href="https://github.com/user/netprobe-pi" target="_blank">GitHub</a>
-            </span>
+            <span class="text-muted">NetProbe Pi &copy; 2025</span>
+            <span class="text-muted">|</span>
+            <span class="text-muted" id="version">Version 1.0.0</span>
+            <span class="text-muted">|</span>
+            <a href="https://github.com/raf181/netprobe-pi" target="_blank" rel="noopener">
+                <i class="fab fa-github"></i> GitHub
+            </a>
+            <span class="text-muted">|</span>
+            <a href="https://github.com/raf181" target="_blank" rel="noopener">
+                Created by raf181 <i class="fab fa-github"></i>
+            </a>
         </div>
     </footer>
 

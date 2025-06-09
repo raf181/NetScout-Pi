@@ -12,6 +12,7 @@ import jwt
 import netifaces
 import socket
 import subprocess
+import werkzeug.routing
 from functools import wraps
 from pathlib import Path
 
@@ -376,6 +377,12 @@ def create_app(config, plugin_manager, network_monitor):
         """Detailed result view for a specific run."""
         return render_template('result_detail.html', run_id=run_id)
     
+    @app.route('/logs')
+    @login_required
+    def logs():
+        """System logs page."""
+        return render_template('logs.html')
+    
     # API routes
     @app.route('/api/status')
     @login_required
@@ -544,6 +551,117 @@ def create_app(config, plugin_manager, network_monitor):
         
         runs = plugin.logger.get_recent_runs()
         return jsonify({"plugin": plugin_name, "runs": runs})
+    
+    @app.route('/api/logs', methods=['GET'])
+    @login_required
+    def api_system_logs():
+        """Get system logs."""
+        try:
+            # Parse query parameters
+            log_type = request.args.get('type', 'system')
+            log_level = request.args.get('level', 'all')
+            time_range = request.args.get('time', '24h')
+            page = int(request.args.get('page', 1))
+            page_size = int(request.args.get('size', 50))
+            
+            # Set default log directory based on type
+            if log_type == 'system':
+                log_dir = config.get('logging.directory', '/var/log/netprobe')
+            elif log_type == 'network':
+                log_dir = os.path.join(config.get('logging.directory', '/var/log/netprobe'), 'network')
+            elif log_type == 'plugins':
+                log_dir = os.path.join(config.get('logging.directory', '/var/log/netprobe'), 'plugins')
+            elif log_type == 'web':
+                log_dir = os.path.join(config.get('logging.directory', '/var/log/netprobe'), 'web')
+            else:
+                log_dir = config.get('logging.directory', '/var/log/netprobe')
+            
+            # Set log file path
+            log_file = os.path.join(log_dir, 'netprobe.log')
+            if not os.path.exists(log_file):
+                log_file = next((f for f in os.listdir(log_dir) if f.endswith('.log')), None)
+                if log_file:
+                    log_file = os.path.join(log_dir, log_file)
+                else:
+                    return jsonify({"logs": [], "total": 0})
+            
+            # Read and parse log file
+            logs = []
+            
+            # Convert level filter to numeric value
+            level_map = {
+                'all': 0,
+                'debug': 10,
+                'info': 20,
+                'warning': 30,
+                'error': 40
+            }
+            min_level = level_map.get(log_level, 0)
+            
+            # Convert time range to timestamp
+            now = datetime.datetime.now()
+            if time_range == '24h':
+                min_time = now - datetime.timedelta(hours=24)
+            elif time_range == '7d':
+                min_time = now - datetime.timedelta(days=7)
+            elif time_range == '30d':
+                min_time = now - datetime.timedelta(days=30)
+            else:
+                min_time = now - datetime.timedelta(days=365*10)  # Effectively "all time"
+            
+            # Parse log entries
+            if os.path.exists(log_file):
+                with open(log_file, 'r') as f:
+                    for line in f:
+                        try:
+                            # Basic log parsing - assumes format: "2025-06-09 10:50:35,185 - __main__ - INFO - Discovered 8 plugins"
+                            parts = line.split(' - ', 3)
+                            if len(parts) >= 4:
+                                timestamp_str = parts[0].strip()
+                                source = parts[1].strip()
+                                level = parts[2].strip()
+                                message = parts[3].strip()
+                                
+                                # Filter by level
+                                level_value = level_map.get(level.lower(), 0)
+                                if level_value < min_level:
+                                    continue
+                                
+                                # Filter by time
+                                try:
+                                    timestamp = datetime.datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S,%f')
+                                    if timestamp < min_time:
+                                        continue
+                                except:
+                                    # If we can't parse the timestamp, include it anyway
+                                    pass
+                                
+                                logs.append({
+                                    'timestamp': timestamp_str,
+                                    'source': source,
+                                    'level': level,
+                                    'message': message
+                                })
+                        except Exception as e:
+                            logger.error(f"Error parsing log line: {e}")
+            
+            # Sort logs by timestamp (newest first)
+            logs.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+            
+            # Paginate results
+            total_logs = len(logs)
+            start_idx = (page - 1) * page_size
+            end_idx = start_idx + page_size
+            paged_logs = logs[start_idx:end_idx]
+            
+            return jsonify({
+                "logs": paged_logs,
+                "total": total_logs
+            })
+            
+        except Exception as e:
+            logger.error(f"Error retrieving logs: {str(e)}")
+            return jsonify({"error": str(e), "logs": [], "total": 0}), 500
     
     @app.route('/api/logs/<plugin_name>/<run_id>')
     @login_required
@@ -838,7 +956,24 @@ def create_app(config, plugin_manager, network_monitor):
             logger.error(f"Error exporting result: {e}")
             return jsonify({"error": str(e)}), 500
     
-    # SocketIO events
+    # Error handlers
+    @app.errorhandler(404)
+    def page_not_found(e):
+        logger.warning(f"404 error: {request.path}")
+        return render_template('error.html', error="Page not found", details="The requested page could not be found."), 404
+        
+    @app.errorhandler(500)
+    def internal_server_error(e):
+        logger.error(f"500 error: {str(e)}")
+        return render_template('error.html', error="Internal server error", details="An unexpected error occurred."), 500
+    
+    @app.errorhandler(werkzeug.routing.exceptions.BuildError)
+    def handle_url_build_error(e):
+        logger.error(f"URL build error: {str(e)}")
+        return render_template('error.html', error="Navigation error", 
+                              details="There was an error generating a URL. This might be due to a missing endpoint."), 500
+
+    # Register SocketIO event handlers
     @socketio.on('connect')
     def handle_connect():
         logger.debug(f"Client connected: {request.sid}")
@@ -859,4 +994,4 @@ def create_app(config, plugin_manager, network_monitor):
             return 0
     
     # Return app with SocketIO
-    return socketio.init_app(app) or app
+    return socketio, app
