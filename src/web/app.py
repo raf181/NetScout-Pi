@@ -97,10 +97,10 @@ def create_app(config, plugin_manager, network_monitor):
             client_ip = request.remote_addr
             if client_ip != '127.0.0.1':  # Always allow localhost
                 # Check if eth0 has this IP in its subnet
-                eth0_info = network_monitor.get_interface_info('eth0')
+                eth0_info = network_monitor.get_interface_status('eth0')
                 if eth0_info and 'addresses' in eth0_info and 'ipv4' in eth0_info['addresses']:
-                    eth0_ip = eth0_info['addresses']['ipv4']['address']
-                    eth0_netmask = eth0_info['addresses']['ipv4']['netmask']
+                    eth0_ip = eth0_info['addresses']['ipv4'][0]['addr']
+                    eth0_netmask = eth0_info['addresses']['ipv4'][0]['netmask']
                     # Very basic network check (would need to properly check subnet)
                     if client_ip.startswith(eth0_ip.split('.')[0]):
                         return False
@@ -166,8 +166,8 @@ def create_app(config, plugin_manager, network_monitor):
     @app.route('/api/status')
     @login_required
     def api_status():
-        eth0_info = network_monitor.get_interface_info('eth0')
-        wlan0_info = network_monitor.get_interface_info('wlan0')
+        eth0_info = network_monitor.get_interface_status('eth0')
+        wlan0_info = network_monitor.get_interface_status('wlan0')
         
         return jsonify({
             "version": "0.1.0",
