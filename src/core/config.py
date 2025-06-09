@@ -135,12 +135,13 @@ class Config:
             else:
                 default_config[key] = value
     
-    def get(self, key_path, default=None):
+    def get(self, key_path, default=None, type_cast=None):
         """Get configuration value by dot-separated path.
         
         Args:
             key_path (str): Dot-separated path to configuration value.
-            default: Default value to return if key doesn't exist.
+            default: Default value to return if key doesn't exist or cast fails.
+            type_cast (callable, optional): Function to cast the value to a specific type.
             
         Returns:
             Configuration value or default.
@@ -152,6 +153,14 @@ class Config:
             if isinstance(config, dict) and key in config:
                 config = config[key]
             else:
+                return default
+        
+        # If type_cast is provided, try to cast the value
+        if type_cast is not None:
+            try:
+                return type_cast(config)
+            except (ValueError, TypeError) as e:
+                self.logger.warning(f"Failed to cast config value '{key_path}': {str(e)}. Using default value.")
                 return default
         
         return config

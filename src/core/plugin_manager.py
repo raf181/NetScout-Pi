@@ -255,11 +255,33 @@ class PluginManager:
                             'file_path': str(file_path),
                             'module_name': file_path.stem,
                             'metadata': self._extract_metadata(plugin_class),
-                            'enabled': self.config.get(f'plugins.{plugin_name}.enabled', True)
+                            'enabled': self.config.get(f'plugins.{plugin_name}.enabled', True),
+                            'available': True,
+                            'error': None
                         }
                         self.logger.info(f"Discovered plugin: {plugin_name} v{plugin_class.version}")
                 except Exception as e:
                     self.logger.error(f"Error loading plugin from {file_path}: {str(e)}")
+                    # Mark plugin as unavailable but don't crash
+                    plugin_name = file_path.stem
+                    self.plugins[plugin_name] = {
+                        'class': None,
+                        'file_path': str(file_path),
+                        'module_name': file_path.stem,
+                        'metadata': {
+                            'name': plugin_name,
+                            'description': 'Plugin failed to load',
+                            'version': 'Unknown',
+                            'author': 'Unknown',
+                            'permissions': [],
+                            'category': 'error',
+                            'tags': ['error']
+                        },
+                        'enabled': False,
+                        'available': False,
+                        'error': str(e)
+                    }
+                    self.logger.warning(f"Plugin {plugin_name} marked as unavailable due to error: {str(e)}")
         
         self.logger.info(f"Discovered {len(self.plugins)} plugins")
         return self.plugins
@@ -340,8 +362,13 @@ class PluginManager:
             plugin_info['status'] = {
                 'running': False,
                 'progress': 0,
-                'status': 'not_loaded'
+                'status': 'not_loaded' if plugin_info.get('available', True) else 'unavailable'
             }
+            
+        # Add availability information
+        if not plugin_info.get('available', True):
+            plugin_info['status']['status'] = 'unavailable'
+            plugin_info['status']['error'] = plugin_info.get('error', 'Unknown error')
             
         return plugin_info
     
@@ -360,10 +387,16 @@ class PluginManager:
             plugin_name (str): Name of the plugin.
             
         Returns:
-            PluginBase: Plugin instance or None if not found.
+            PluginBase: Plugin instance or None if not found or unavailable.
         """
         if plugin_name not in self.plugins:
             self.logger.error(f"Plugin not found: {plugin_name}")
+            return None
+            
+        # Check if plugin is available
+        if not self.plugins[plugin_name].get('available', True):
+            error_msg = self.plugins[plugin_name].get('error', 'Unknown error')
+            self.logger.error(f"Cannot load unavailable plugin {plugin_name}: {error_msg}")
             return None
             
         # Return existing instance if already loaded
@@ -373,6 +406,10 @@ class PluginManager:
         try:
             # Get plugin class and create instance
             plugin_class = self.plugins[plugin_name]['class']
+            if not plugin_class:
+                self.logger.error(f"Plugin class not found for {plugin_name}")
+                return None
+                
             plugin_config = self.config.get(f'plugins.{plugin_name}', {})
             
             # Create plugin logger
@@ -389,6 +426,9 @@ class PluginManager:
             
         except Exception as e:
             self.logger.error(f"Error loading plugin {plugin_name}: {str(e)}")
+            # Mark plugin as unavailable due to runtime error
+            self.plugins[plugin_name]['available'] = False
+            self.plugins[plugin_name]['error'] = str(e)
             return None
     
     def run_plugin(self, plugin_name, callback=None, progress_callback=None, **kwargs):
@@ -956,3 +996,30 @@ class PluginManager:
         except Exception as e:
             self.logger.error(f"Error exporting to CSV: {str(e)}")
             return False
+    
+    def get_plugin_names(self):
+        """Get a list of all plugin names.
+        
+        Returns:
+            list: List of plugin names.
+        """
+        return list(self.plugins.keys())
+    
+    def get_plugin_status(self, plugin_name):
+        """Get plugin status information.
+        
+        Args:
+            plugin_name (str): Name of the plugin.
+            
+        Returns:
+            dict: Plugin status information or None if not found.
+        """
+        plugin_info = self.get_plugin_info(plugin_name)
+        if not plugin_info:
+            return None
+            
+        plugin = self.load_plugin(plugin_name)
+        if plugin:
+            plugin_info['status'] = plugin.get_status()
+            
+        return plugin_info

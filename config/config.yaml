@@ -1,9 +1,11 @@
+logging:
+  directory: /var/log/netprobe
 network:
   auto_run_on_connect: true
   default_plugins:
   - ip_info
   - ping_test
-  interface: eth0
+  interface: ens18
   poll_interval: 5
   wifi_interface: wlan0
 plugins:
@@ -26,6 +28,22 @@ plugins:
     - gateway
     - 8.8.8.8
     - 1.1.1.1
+security:
+  jwt_secret: "827012b1898837fcf2f901abb26f4670"
+web:
+  auth_required: false
+  port: 8080
+  host: "0.0.0.0"
+  session_timeout: 3600
+  cookie_secure: false
+  host: 0.0.0.0
+  log_requests: true
+  port: 8080
+  session_timeout: 3600
+setup:
+  completed: true
+system:
+  data_dir: "/home/anoam/NetScout-Pi/data"
   port_scan:
     enabled: true
     ports: common
@@ -44,20 +62,13 @@ plugins:
 security:
   allow_eth0_access: false
   jwt_secret: 4e13e06154c59202fa5583db5416b227e9ecabc884d9c17aeb45ef743214e1d7
-  password_hash: null
+  password_hash: $2b$12$.wRzYTNB3xbCW/SJcqZR7OfdpBRgTRQFb2NzCX29lopK5.VHnMDJS
   rate_limit: 60
 setup:
-  completed: false
+  completed: true
 system:
   data_dir: /home/anoam/NetScout-Pi/data
   debug: true
   log_dir: /home/anoam/NetScout-Pi/logs
   log_level: DEBUG
   plugin_dir: /home/anoam/NetScout-Pi/config/plugins
-web:
-  auth_required: false
-  cookie_secure: true
-  host: 0.0.0.0
-  log_requests: true
-  port: 8081
-  session_timeout: 3600

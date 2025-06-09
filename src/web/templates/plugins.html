@@ -219,7 +219,7 @@
             
             // Upload plugin
             $.ajax({
-                url: '/api/plugins/upload',
+                url: '/api/plugin/upload',
                 type: 'POST',
                 data: formData,
                 processData: false,
@@ -313,6 +313,8 @@
                     for (const [name, plugin] of Object.entries(plugins)) {
                         const isEnabled = plugin.enabled !== false;
                         const isBuiltin = !plugin.file_path.includes('/plugins/user/');
+                        const isAvailable = plugin.available !== false;
+                        const errorMsg = plugin.error || '';
                         
                         html += `
                             <tr>
@@ -320,6 +322,7 @@
                                 <td>${plugin.metadata.description}</td>
                                 <td>${plugin.metadata.version}</td>
                                 <td>
+                                    ${isAvailable ? `
                                     <div class="form-check form-switch">
                                         <input class="form-check-input plugin-toggle" type="checkbox" 
                                             data-plugin="${name}" ${isEnabled ? 'checked' : ''}>
@@ -327,12 +330,24 @@
                                             ${isEnabled ? 'Enabled' : 'Disabled'}
                                         </label>
                                     </div>
+                                    ` : `
+                                    <div class="text-danger">
+                                        <i class="fas fa-exclamation-triangle"></i> Unavailable
+                                        <small class="d-block text-muted">${errorMsg}</small>
+                                    </div>
+                                    `}
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm">
+                                        ${isAvailable ? `
                                         <button class="btn btn-primary run-plugin" data-plugin="${name}">
                                             <i class="fas fa-play"></i>
                                         </button>
+                                        ` : `
+                                        <button class="btn btn-primary run-plugin" disabled>
+                                            <i class="fas fa-play"></i>
+                                        </button>
+                                        `}
                                         <button class="btn btn-info view-plugin" data-plugin="${name}">
                                             <i class="fas fa-info-circle"></i>
                                         </button>
@@ -376,7 +391,7 @@
                     const enabled = $(this).prop('checked');
                     
                     $.ajax({
-                        url: `/api/plugins/${plugin}/toggle`,
+                        url: `/api/plugin/${plugin}/toggle`,
                         type: 'POST',
                         contentType: 'application/json',
                         data: JSON.stringify({ enabled: enabled }),
@@ -405,7 +420,7 @@
                     
                     if (confirm(`Are you sure you want to uninstall plugin: ${plugin}?`)) {
                         $.ajax({
-                            url: `/api/plugins/${plugin}`,
+                            url: `/api/plugin/${plugin}`,
                             type: 'DELETE',
                             success: function() {
                                 alert(`Plugin ${plugin} uninstalled successfully`);
@@ -501,7 +516,7 @@
             const modal = new bootstrap.Modal(document.getElementById('pluginDetailsModal'));
             modal.show();
             
-            $.getJSON(`/api/plugins/${plugin}`, function(data) {
+            $.getJSON(`/api/plugin/${plugin}`, function(data) {
                 let html = `
                     <h4>${data.metadata.name} v${data.metadata.version}</h4>
                     <p class="text-muted">${data.metadata.description}</p>
@@ -528,10 +543,24 @@
                                     <td>${data.file_path}</td>
                                 </tr>
                                 <tr>
+                                    <th>Availability</th>
+                                    <td>${data.available === false ? 
+                                        `<span class="text-danger">Unavailable</span>` :
+                                        `<span class="text-success">Available</span>`}
+                                    </td>
+                                </tr>
+                                ${data.available === false && data.error ? `
+                                <tr>
+                                    <th>Error</th>
+                                    <td class="text-danger">${data.error}</td>
+                                </tr>` : ''}
+                                <tr>
                                     <th>Status</th>
-                                    <td>${data.status.running ? 
+                                    <td>${data.available === false ? 
+                                        `<span class="text-danger">Unavailable</span>` :
+                                        (data.status.running ? 
                                         `<span class="text-primary">Running (${data.status.progress}%)</span>` : 
-                                        `<span class="text-success">Ready</span>`}
+                                        `<span class="text-success">Ready</span>`)}
                                     </td>
                                 </tr>
                             </table>

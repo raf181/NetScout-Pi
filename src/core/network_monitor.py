@@ -55,7 +55,7 @@ class NetworkMonitor:
                 self.wifi_interface = wifi_interfaces[0]
                 self.logger.info(f"Auto-selected WiFi interface: {self.wifi_interface}")
         
-        self.poll_interval = config.get('network.poll_interval', 5)
+        self.poll_interval = config.get('network.poll_interval', 5, type_cast=int)
         self.auto_run = config.get('network.auto_run_on_connect', True)
         self.default_plugins = config.get('network.default_plugins', ['ip_info', 'ping_test'])
         self.monitor_method = config.get('network.monitor_method', 'poll')  # 'poll', 'netlink', or 'ifplugd'

@@ -1,7 +1,0 @@
-{
-  "run_id": "e878a093-82dc-4e1a-916d-52913a241e2b",
-  "timestamp": "2025-06-09T11:14:29.707363",
-  "plugin_name": "ip_info",
-  "error": "Plugin execution failed: 'PluginLogger' object has no attribute 'info'",
-  "stack_trace": "Traceback (most recent call last):\n  File \"/home/anoam/NetScout-Pi/src/core/plugin_manager.py\", line 106, in _run_wrapper\n    result = self.run(**kwargs)\n             ^^^^^^^^^^^^^^^^^^\n  File \"/home/anoam/NetScout-Pi/src/plugins/ip_info.py\", line 42, in run\n    self.logger.info(f\"Collecting IP information for interface: {interface}\")\n    ^^^^^^^^^^^^^^^^\nAttributeError: 'PluginLogger' object has no attribute 'info'\n"
-}

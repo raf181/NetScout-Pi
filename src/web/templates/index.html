@@ -215,21 +215,24 @@
             $.getJSON('/api/network/status', function(data) {
                 let html = '';
                 
-                if (data.eth0) {
-                    const eth0 = data.eth0;
-                    const statusColor = eth0.carrier ? 'success' : 'danger';
-                    const statusText = eth0.carrier ? 'Connected' : 'Disconnected';
+                // Show primary interface info
+                const primaryInterface = data.primary_interface || 'eth0';
+                const ifData = data[primaryInterface];
+                
+                if (ifData) {
+                    const statusColor = ifData.carrier ? 'success' : 'danger';
+                    const statusText = ifData.carrier ? 'Connected' : 'Disconnected';
                     
                     html += `
-                        <h6 class="border-bottom pb-2">Ethernet (eth0)</h6>
+                        <h6 class="border-bottom pb-2">Primary Interface (${primaryInterface})</h6>
                         <div class="d-flex justify-content-between mb-2">
                             <span>Status:</span>
                             <span class="text-${statusColor}"><i class="fas fa-circle me-1"></i>${statusText}</span>
                         </div>
                     `;
 
-                    if (eth0.addresses && eth0.addresses.ipv4 && eth0.addresses.ipv4.length > 0) {
-                        const ipv4 = eth0.addresses.ipv4[0];
+                    if (ifData.addresses && ifData.addresses.ipv4 && ifData.addresses.ipv4.length > 0) {
+                        const ipv4 = ifData.addresses.ipv4[0];
                         html += `
                             <div class="d-flex justify-content-between mb-2">
                                 <span>IP Address:</span>
@@ -244,23 +247,27 @@
                         html += `<p class="text-muted">No IP address assigned</p>`;
                     }
                 } else {
-                    html += `<p class="text-danger">Ethernet interface (eth0) not found</p>`;
+                    html += `<p class="text-danger">Interface ${primaryInterface} not found</p>`;
                 }
 
-                if (data.wlan0) {
-                    const wlan0 = data.wlan0;
+                // Show Wi-Fi interface info if available
+                const wifiInterface = data.wifi_interface || 'wlan0';
+                if (data[wifiInterface]) {
+                    const wifi = data[wifiInterface];
+                    const wifiUp = wifi.up || wifi.carrier;
+                    
                     html += `
-                        <h6 class="border-bottom pb-2 mt-3">WiFi (wlan0)</h6>
+                        <h6 class="border-bottom pb-2 mt-3">WiFi (${wifiInterface})</h6>
                         <div class="d-flex justify-content-between mb-2">
                             <span>Status:</span>
-                            <span class="text-${wlan0.up ? 'success' : 'danger'}">
-                                <i class="fas fa-circle me-1"></i>${wlan0.up ? 'Up' : 'Down'}
+                            <span class="text-${wifiUp ? 'success' : 'danger'}">
+                                <i class="fas fa-circle me-1"></i>${wifiUp ? 'Up' : 'Down'}
                             </span>
                         </div>
                     `;
 
-                    if (wlan0.addresses && wlan0.addresses.ipv4 && wlan0.addresses.ipv4.length > 0) {
-                        const ipv4 = wlan0.addresses.ipv4[0];
+                    if (wifi.addresses && wifi.addresses.ipv4 && wifi.addresses.ipv4.length > 0) {
+                        const ipv4 = wifi.addresses.ipv4[0];
                         html += `
                             <div class="d-flex justify-content-between mb-2">
                                 <span>IP Address:</span>
@@ -268,6 +275,37 @@
                             </div>
                         `;
                     }
+                }
+                
+                // Add internet status
+                html += `
+                    <h6 class="border-bottom pb-2 mt-3">Internet</h6>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Status:</span>
+                        <span class="text-${data.internet_status === 'connected' ? 'success' : 'danger'}">
+                            <i class="fas fa-circle me-1"></i>${data.internet_status === 'connected' ? 'Connected' : 'Disconnected'}
+                        </span>
+                    </div>
+                `;
+                
+                // Add DNS servers if available
+                if (data.dns_servers && data.dns_servers.length > 0) {
+                    html += `
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>DNS Servers:</span>
+                            <span>${data.dns_servers.join(', ')}</span>
+                        </div>
+                    `;
+                }
+                
+                // Add gateway if available
+                if (data.default_gateway) {
+                    html += `
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Default Gateway:</span>
+                            <span>${data.default_gateway}</span>
+                        </div>
+                    `;
                 }
 
                 $('#network-info').html(html);
@@ -454,7 +492,7 @@
 
             // Call API to run plugin
             $.ajax({
-                url: `/api/plugins/${pluginName}/run`,
+                url: `/api/plugin/${pluginName}/run`,
                 type: 'POST',
                 success: function(data) {
                     // The socket.io event will handle the result
