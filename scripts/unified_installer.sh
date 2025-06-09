@@ -1100,7 +1100,7 @@ reset() {
         log_error "NetScout-Pi not found in $INSTALL_DIR"
         echo "NetScout-Pi does not appear to be installed. Run the installer first."
         exit 1
-    }
+    fi
     
     # Multiple confirmation prompts to prevent accidental reset
     echo "⚠️ WARNING: This will reset NetScout-Pi to factory defaults."
@@ -1229,7 +1229,7 @@ clean() {
         log_warning "NetScout-Pi does not appear to be installed"
         echo "NetScout-Pi does not appear to be installed."
         return 0
-    }
+    fi
     
     # Multiple confirmation prompts to prevent accidental removal
     echo "⚠️ WARNING: This will completely remove NetScout-Pi from your system."
