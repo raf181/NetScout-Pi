@@ -122,6 +122,39 @@ A comprehensive network diagnostics system for Raspberry Pi Zero 2 W that provid
 
 GitHub no longer supports password authentication for git operations. The scripts are designed to handle this automatically by using alternative methods if direct cloning fails. If you're manually cloning the repository, please refer to the [Installation Guide](docs/INSTALL.md) for detailed authentication options.
 
+## 🏃 Quick Start (Development Mode)
+
+### Prerequisites
+
+Before running NetProbe Pi directly from the repository, make sure you have the following installed:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y python3-pip python3-yaml python3-flask python3-netifaces python3-pyroute2 python3-bcrypt
+```
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/raf181/NetScout-Pi.git
+cd NetScout-Pi
+```
+
+2. Install dependencies:
+```bash
+pip3 install -r requirements.txt
+```
+
+3. Run the application:
+```bash
+sudo python3 app.py
+```
+
+4. Access the web interface at http://localhost or the IP address of your device.
+
+*Note: Running directly from the repository is recommended for development purposes only. For production use, follow the installation guide in docs/INSTALL.md.*
+
 ## 📖 Documentation
 
 Full documentation is available in the `docs/` directory:
