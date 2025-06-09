@@ -49,12 +49,18 @@ apt-get install -y \
     git nmap tcpdump arp-scan speedtest-cli \
     ifplugd avahi-daemon iproute2 \
     build-essential libffi-dev libssl-dev \
-    wget unzip curl
+    wget unzip curl python3-yaml python3-netifaces
 
 # Create installation directory
 log "Creating installation directory..."
 mkdir -p $INSTALL_DIR
 mkdir -p /var/log/netprobe
+mkdir -p /var/lib/netprobe
+mkdir -p /etc/netprobe/plugins
+
+# Set up environment
+log "Setting up environment..."
+bash $INSTALL_DIR/scripts/setup_environment.sh
 
 # Copy files to installation directory
 log "Copying files to installation directory..."

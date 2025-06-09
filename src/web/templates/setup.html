@@ -1,0 +1,203 @@
+{% extends "layout.html" %}
+
+{% block title %}NetProbe Pi - First-Time Setup{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card mt-4 mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-cogs me-2"></i>First-Time Setup</h4>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <h5>Welcome to NetProbe Pi!</h5>
+                        <p>This wizard will help you configure your NetProbe Pi system for the first time. Please complete the following steps to get started.</p>
+                    </div>
+
+                    {% if error %}
+                    <div class="alert alert-danger alert-dismissible fade show">
+                        {{ error }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endif %}
+
+                    <form method="post" action="{{ url_for('setup') }}">
+                        <!-- Step 1: Network Interfaces -->
+                        <div class="mb-4">
+                            <h5><i class="fas fa-network-wired me-2"></i>Network Interfaces</h5>
+                            <p>Select the primary network interfaces for monitoring:</p>
+                            
+                            <div class="mb-3">
+                                <label for="network_interface" class="form-label">Primary Network Interface</label>
+                                <select class="form-select" id="network_interface" name="network_interface" required>
+                                    <option value="" selected disabled>-- Select Interface --</option>
+                                    {% for iface in interfaces %}
+                                    <option value="{{ iface.name }}" {% if iface.default %}selected{% endif %}>{{ iface.name }} - {{ iface.description }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">This interface will be used for primary network operations.</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="wifi_interface" class="form-label">Wi-Fi Interface (Optional)</label>
+                                <select class="form-select" id="wifi_interface" name="wifi_interface">
+                                    <option value="" selected>-- None --</option>
+                                    {% for iface in wifi_interfaces %}
+                                    <option value="{{ iface.name }}">{{ iface.name }} - {{ iface.description }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">Select your Wi-Fi interface if available.</div>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: System Paths -->
+                        <div class="mb-4">
+                            <h5><i class="fas fa-folder me-2"></i>System Paths</h5>
+                            <p>Configure where NetProbe Pi should store its data:</p>
+                            
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>System Permissions Required:</strong> Make sure these directories exist and have the right permissions. 
+                                You can run <code>sudo scripts/setup_environment.sh</code> to automatically set up these directories.
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="log_dir" class="form-label">Log Directory</label>
+                                <input type="text" class="form-control" id="log_dir" name="log_dir" value="{{ default_log_dir }}" required>
+                                <div class="form-text">Directory where logs will be stored. Make sure the application has write permissions.</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="data_dir" class="form-label">Data Directory</label>
+                                <input type="text" class="form-control" id="data_dir" name="data_dir" value="{{ default_data_dir }}" required>
+                                <div class="form-text">Directory where application data will be stored.</div>
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Web Interface -->
+                        <div class="mb-4">
+                            <h5><i class="fas fa-globe me-2"></i>Web Interface</h5>
+                            <p>Configure the web interface settings:</p>
+                            
+                            <div class="mb-3">
+                                <label for="web_port" class="form-label">Web Interface Port</label>
+                                <input type="number" class="form-control" id="web_port" name="web_port" min="1" max="65535" value="8080" required>
+                                <div class="form-text">Port for the web interface. Use 80 for standard HTTP (requires root) or 8080 for non-root access.</div>
+                            </div>
+                            
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="auth_required" name="auth_required" checked>
+                                <label class="form-check-label" for="auth_required">Require Authentication</label>
+                                <div class="form-text">Enable to require login for accessing the web interface.</div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Configuration
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer">
+                    <div class="alert alert-info mb-0">
+                        <h5><i class="fas fa-info-circle me-2"></i>System Status</h5>
+                        <p class="mb-1"><strong>Detected Network Interfaces:</strong></p>
+                        <ul class="mb-2">
+                            {% for iface in interfaces %}
+                            <li>{{ iface.name }} - {{ iface.description }}</li>
+                            {% endfor %}
+                        </ul>
+                        <p class="mb-0"><strong>Note:</strong> If you don't see your expected network interfaces, make sure they are properly connected and enabled.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Warn about system directories if they don't have correct permissions
+    const logDir = document.getElementById('log_dir');
+    const dataDir = document.getElementById('data_dir');
+    
+    // Function to check if a path is a system path that might need special permissions
+    function isSystemPath(path) {
+        return path.startsWith('/var/') || path.startsWith('/etc/') || path.startsWith('/usr/');
+    }
+    
+    // Add warning if needed
+    function updatePathWarning() {
+        const systemPaths = [];
+        if (isSystemPath(logDir.value)) systemPaths.push('log directory');
+        if (isSystemPath(dataDir.value)) systemPaths.push('data directory');
+        
+        const warningArea = document.querySelector('.alert-info');
+        if (systemPaths.length > 0 && warningArea) {
+            const warningEl = document.createElement('div');
+            warningEl.className = 'alert alert-warning mt-3';
+            warningEl.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i><strong>System Permissions Required:</strong> ' +
+                'The ' + systemPaths.join(' and ') + ' require root permissions to create. ' +
+                'Run <code>sudo scripts/setup_environment.sh</code> to set up directories before proceeding.';
+            
+            if (!document.querySelector('.alert-warning')) {
+                warningArea.parentNode.insertBefore(warningEl, warningArea.nextSibling);
+            }
+        } else {
+            const existingWarning = document.querySelector('.alert-warning');
+            if (existingWarning) {
+                existingWarning.remove();
+            }
+        }
+    }
+    
+    if (logDir) logDir.addEventListener('change', updatePathWarning);
+    if (dataDir) dataDir.addEventListener('change', updatePathWarning);
+    
+    // Initial check
+    updatePathWarning();
+    
+    // Form validation
+    $('form').submit(function(e) {
+        // Validate network interface
+        const networkInterface = $('#network_interface').val();
+        if (!networkInterface) {
+            e.preventDefault();
+            alert('Please select a primary network interface');
+            return false;
+        }
+        
+        // Validate log directory
+        const logDir = $('#log_dir').val().trim();
+        if (!logDir) {
+            e.preventDefault();
+            alert('Please specify a log directory');
+            return false;
+        }
+        
+        // Validate data directory
+        const dataDir = $('#data_dir').val().trim();
+        if (!dataDir) {
+            e.preventDefault();
+            alert('Please specify a data directory');
+            return false;
+        }
+        
+        // Validate web port
+        const webPort = parseInt($('#web_port').val());
+        if (isNaN(webPort) || webPort < 1 || webPort > 65535) {
+            e.preventDefault();
+            alert('Please enter a valid port number (1-65535)');
+            return false;
+        }
+        
+        return true;
+    });
+});
+</script>
+{% endblock %}

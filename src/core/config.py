@@ -2,9 +2,28 @@
 # NetProbe Pi - Configuration Manager
 
 import os
-import yaml
+import sys
 import logging
 from pathlib import Path
+
+# Try to import yaml, and if it fails, try to add the user's site-packages directory
+try:
+    import yaml
+except ImportError:
+    import site
+    import subprocess
+    
+    # Get the user's site-packages directory
+    user_site = subprocess.check_output([sys.executable, '-m', 'site', '--user-site'], 
+                                        universal_newlines=True).strip()
+    
+    if user_site not in sys.path:
+        sys.path.append(user_site)
+    
+    try:
+        import yaml
+    except ImportError:
+        raise ImportError("PyYAML is required. Install it with: sudo apt install python3-yaml")
 
 class Config:
     """Configuration manager for NetProbe Pi."""

@@ -30,7 +30,31 @@ class NetworkMonitor:
         self.plugin_manager = plugin_manager
         self.logger = logging.getLogger(__name__)
         
+        # Get configured interfaces or auto-detect
         self.interface = config.get('network.interface', 'eth0')
+        self.wifi_interface = config.get('network.wifi_interface', 'wlan0')
+        
+        # Verify interfaces exist, otherwise try to auto-detect
+        if self.interface not in netifaces.interfaces():
+            self.logger.warning(f"Interface {self.interface} not found")
+            # Try to find a suitable interface
+            available_interfaces = [iface for iface in netifaces.interfaces() 
+                                    if iface != 'lo' and not iface.startswith(('wl', 'wlan', 'wifi'))]
+            if available_interfaces:
+                self.interface = available_interfaces[0]
+                self.logger.info(f"Auto-selected interface: {self.interface}")
+            else:
+                self.logger.warning("No suitable network interfaces found")
+        
+        # Same for WiFi
+        if self.wifi_interface not in netifaces.interfaces():
+            # Try to find a suitable WiFi interface
+            wifi_interfaces = [iface for iface in netifaces.interfaces() 
+                               if iface.startswith(('wl', 'wlan', 'wifi'))]
+            if wifi_interfaces:
+                self.wifi_interface = wifi_interfaces[0]
+                self.logger.info(f"Auto-selected WiFi interface: {self.wifi_interface}")
+        
         self.poll_interval = config.get('network.poll_interval', 5)
         self.auto_run = config.get('network.auto_run_on_connect', True)
         self.default_plugins = config.get('network.default_plugins', ['ip_info', 'ping_test'])
@@ -262,19 +286,26 @@ class NetworkMonitor:
             bool: True if interface has carrier, False otherwise.
         """
         try:
-            # Check carrier state from sysfs
+            # First check if the interface exists
+            if interface not in netifaces.interfaces():
+                self.logger.warning(f"Interface {interface} not found")
+                return False
+                
+            # Check carrier state using sysfs
             carrier_file = f"/sys/class/net/{interface}/carrier"
-            
             if os.path.exists(carrier_file):
                 with open(carrier_file, 'r') as f:
-                    return f.read().strip() == '1'
+                    carrier = f.read().strip()
+                    return carrier == '1'
             
-            # Fallback: check with ip link
-            output = subprocess.check_output(['ip', 'link', 'show', interface], text=True)
-            return 'NO-CARRIER' not in output
-            
+            # Fallback: check if interface has an IPv4 address
+            addresses = netifaces.ifaddresses(interface)
+            if netifaces.AF_INET in addresses:
+                return True
+                
+            return False
         except Exception as e:
-            self.logger.error(f"Error checking carrier: {str(e)}")
+            self.logger.error(f"Error checking carrier for {interface}: {e}")
             return False
     
     def register_event_handler(self, event, handler):

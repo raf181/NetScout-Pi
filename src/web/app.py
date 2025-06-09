@@ -9,6 +9,9 @@ import json
 import secrets
 import bcrypt
 import jwt
+import netifaces
+import socket
+import subprocess
 from functools import wraps
 from pathlib import Path
 
@@ -29,10 +32,23 @@ def create_app(config, plugin_manager, network_monitor):
     Returns:
         Flask application instance.
     """
+    # Configure logger
+    logger = logging.getLogger(__name__)
+    
     # Create Flask app
+    template_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'templates'))
+    static_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), 'static'))
+    
     app = Flask(__name__, 
-                template_folder=os.path.join(os.path.dirname(__file__), 'templates'),
-                static_folder=os.path.join(os.path.dirname(__file__), 'static'))
+                template_folder=template_folder,
+                static_folder=static_folder)
+    
+    # Debug template paths
+    logger.info(f"Template folder: {template_folder}")
+    try:
+        logger.info(f"Available templates: {os.listdir(template_folder)}")
+    except Exception as e:
+        logger.error(f"Error listing templates: {e}")
     
     # Configure app
     app.config['SECRET_KEY'] = config.get('security.jwt_secret')
@@ -46,9 +62,6 @@ def create_app(config, plugin_manager, network_monitor):
     
     # Create SocketIO instance
     socketio = SocketIO(app, cors_allowed_origins="*")
-    
-    # Configure logger
-    logger = logging.getLogger(__name__)
     
     # Store app state
     app.config['NETPROBE_CONFIG'] = config
@@ -108,6 +121,10 @@ def create_app(config, plugin_manager, network_monitor):
     
     @app.before_request
     def before_request():
+        # Check if setup is needed and redirect if necessary
+        if not config.get('setup.completed', False) and request.endpoint != 'setup' and request.endpoint != 'static':
+            return redirect(url_for('setup'))
+            
         # Perform interface access control
         if not interface_access_control():
             if request.path.startswith('/api/'):
@@ -121,6 +138,181 @@ def create_app(config, plugin_manager, network_monitor):
     @login_required
     def index():
         return render_template('index.html')
+    
+    @app.route('/setup', methods=['GET', 'POST'])
+    def setup():
+        """First-time setup wizard."""
+        # Check if setup already completed
+        if config.get('setup.completed', False) and not request.args.get('force'):
+            flash('Setup already completed', 'info')
+            return redirect(url_for('index'))
+        
+        error = None
+        
+        if request.method == 'POST':
+            # Get form data
+            network_interface = request.form.get('network_interface')
+            wifi_interface = request.form.get('wifi_interface')
+            log_dir = request.form.get('log_dir')
+            data_dir = request.form.get('data_dir')
+            web_port = request.form.get('web_port')
+            auth_required = 'auth_required' in request.form
+            
+            # Validate
+            if not network_interface:
+                error = "Primary network interface is required"
+            elif not log_dir:
+                error = "Log directory is required"
+            elif not data_dir:
+                error = "Data directory is required"
+            elif not web_port or not web_port.isdigit():
+                error = "Valid web port is required"
+            
+            if not error:
+                try:
+                    # Update configuration
+                    config.set('network.interface', network_interface)
+                    if wifi_interface:
+                        config.set('network.wifi_interface', wifi_interface)
+                    
+                    config.set('logging.directory', log_dir)
+                    config.set('system.data_dir', data_dir)
+                    config.set('web.port', int(web_port))
+                    config.set('web.auth_required', auth_required)
+                    
+                    # Create directories if they don't exist
+                    os.makedirs(log_dir, exist_ok=True)
+                    os.makedirs(data_dir, exist_ok=True)
+                    
+                    # Mark setup as completed
+                    config.set('setup.completed', True)
+                    config.save()
+                    
+                    # Restart network monitor with new interface
+                    if network_monitor:
+                        network_monitor.stop()
+                        network_monitor.interface = network_interface
+                        network_monitor.start()
+                    
+                    flash('Setup completed successfully!', 'success')
+                    
+                    # Redirect to login if auth required, otherwise dashboard
+                    if auth_required:
+                        return redirect(url_for('login'))
+                    else:
+                        session['user_id'] = 'admin'  # Auto-login if no auth required
+                        return redirect(url_for('index'))
+                        
+                except Exception as e:
+                    logger.error(f"Setup error: {e}")
+                    error = f"Setup failed: {str(e)}"
+        
+        # Get available network interfaces
+        interfaces = []
+        wifi_interfaces = []
+        
+        try:
+            for iface in netifaces.interfaces():
+                if iface == 'lo':  # Skip loopback
+                    continue
+                
+                # Get IP addresses
+                addresses = netifaces.ifaddresses(iface)
+                ipv4 = addresses.get(netifaces.AF_INET, [])
+                ipv6 = addresses.get(netifaces.AF_INET6, [])
+                
+                # Get interface description
+                description = ""
+                if ipv4:
+                    description = f"IPv4: {ipv4[0].get('addr', 'N/A')}"
+                elif ipv6:
+                    description = f"IPv6: {ipv6[0].get('addr', 'N/A')}"
+                else:
+                    description = "No IP address"
+                
+                # Check if interface is up
+                is_up = False
+                try:
+                    with open(f"/sys/class/net/{iface}/operstate", "r") as f:
+                        state = f.read().strip()
+                        is_up = state == "up" or state == "unknown"
+                    if is_up:
+                        description += " (Active)"
+                except:
+                    pass
+                
+                # Determine if it's a WiFi interface (simplified heuristic)
+                is_wifi = iface.startswith(('wl', 'wlan', 'wifi', 'ath', 'ra'))
+                
+                # Check if it's the primary interface
+                is_default = False
+                try:
+                    with open("/proc/net/route", "r") as f:
+                        for line in f:
+                            parts = line.strip().split()
+                            if len(parts) >= 2 and parts[0] == iface and parts[1] == '00000000':
+                                is_default = True
+                                description += " (Default Route)"
+                                break
+                except:
+                    pass
+                
+                interface_info = {
+                    'name': iface,
+                    'description': description,
+                    'default': is_default or iface == config.get('network.interface', 'eth0')
+                }
+                
+                # Determine if it's a WiFi interface (simplified heuristic)
+                is_wifi = iface.startswith(('wl', 'wlan', 'wifi', 'ath', 'ra'))
+                
+                # Get MAC address if available
+                mac = ""
+                link_info = addresses.get(netifaces.AF_LINK, [{}])
+                if link_info and 'addr' in link_info[0]:
+                    mac = link_info[0]['addr']
+                    if mac:
+                        description += f" | MAC: {mac}"
+                
+                # Get interface status using ip link
+                try:
+                    ip_output = subprocess.check_output(['ip', 'link', 'show', iface], 
+                                                       universal_newlines=True)
+                    if "UP" in ip_output:
+                        description += " | Status: UP"
+                    else:
+                        description += " | Status: DOWN"
+                except:
+                    pass
+                
+                interface_info = {
+                    'name': iface,
+                    'description': description,
+                    'default': iface == config.get('network.interface', 'eth0')
+                }
+                
+                interfaces.append(interface_info)
+                if is_wifi:
+                    wifi_interfaces.append(interface_info)
+                    
+            # Sort interfaces by name
+            interfaces.sort(key=lambda x: x['name'])
+            wifi_interfaces.sort(key=lambda x: x['name'])
+        except Exception as e:
+            logger.error(f"Error detecting network interfaces: {e}")
+            interfaces = [{'name': 'eth0', 'description': 'Default Ethernet', 'default': True}]
+            wifi_interfaces = [{'name': 'wlan0', 'description': 'Default WiFi', 'default': False}]
+        
+        # Default paths
+        default_log_dir = config.get('logging.directory', '/var/log/netprobe')
+        default_data_dir = config.get('system.data_dir', '/var/lib/netprobe')
+        
+        return render_template('setup.html', 
+                              interfaces=interfaces,
+                              wifi_interfaces=wifi_interfaces,
+                              default_log_dir=default_log_dir,
+                              default_data_dir=default_data_dir,
+                              error=error)
     
     @app.route('/login', methods=['GET', 'POST'])
     def login():
@@ -149,6 +341,10 @@ def create_app(config, plugin_manager, network_monitor):
         
         # First time setup?
         first_time = not config.get('security.password_hash')
+        
+        # If this is first time and setup is not completed, redirect to setup
+        if first_time and not config.get('setup.completed', False):
+            return redirect(url_for('setup'))
         
         return render_template('login.html', error=error, first_time=first_time)
     

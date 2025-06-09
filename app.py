@@ -11,12 +11,32 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 sys.path.append(str(BASE_DIR))
 
+# Check for required packages before importing our modules
+try:
+    import yaml
+except ImportError:
+    print("Error: PyYAML is required but not found.")
+    print("Please install it with one of these commands:")
+    print("  sudo apt-get install python3-yaml")
+    print("  pip install pyyaml --break-system-packages")
+    print("Or run our dependency installer script:")
+    print("  sudo bash scripts/install_dependencies.sh")
+    sys.exit(1)
+
 # Import core modules
-from src.core.config import Config
-from src.core.plugin_manager import PluginManager
-from src.core.network_monitor import NetworkMonitor
-from src.core.logger import setup_logging
-from src.web.app import create_app
+try:
+    from src.core.config import Config
+    from src.core.plugin_manager import PluginManager
+    from src.core.network_monitor import NetworkMonitor
+    from src.core.logger import setup_logging
+    from src.web.app import create_app
+except ImportError as e:
+    print(f"Error importing modules: {e}")
+    print("Make sure all required packages are installed.")
+    print("See requirements.txt for the list of dependencies.")
+    print("You can install all dependencies with:")
+    print("  sudo bash scripts/install_dependencies.sh")
+    sys.exit(1)
 
 def parse_args():
     """Parse command line arguments."""
@@ -28,6 +48,7 @@ def parse_args():
                         default='INFO', help='Set logging level')
     parser.add_argument('--no-web', action='store_true', help='Do not start the web interface')
     parser.add_argument('--no-monitor', action='store_true', help='Do not start the network monitor')
+    parser.add_argument('--setup', action='store_true', help='Force first-time setup mode')
     
     return parser.parse_args()
 
@@ -51,6 +72,11 @@ def main():
         if args.debug:
             logger.exception("Configuration error details:")
         sys.exit(1)
+    
+    # Check for setup mode
+    if args.setup:
+        config.set('setup.completed', False)
+        logger.info("Forcing setup mode")
     
     # Initialize plugin manager
     try:
@@ -83,7 +109,7 @@ def main():
         try:
             app = create_app(config, plugin_manager, network_monitor)
             host = config.get('web.host', '0.0.0.0')
-            port = config.get('web.port', 80)
+            port = config.get('web.port', 8080)  # Default to 8080 instead of 80 to avoid requiring root
             debug = args.debug
             
             logger.info(f"Starting web interface on {host}:{port}")
