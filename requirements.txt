@@ -1,10 +1,10 @@
 # NetScout-Pi Requirements File
 # Core Web Framework
-flask==2.0.3
+Flask==2.0.1
 flask-socketio==5.1.1
 python-dotenv==0.19.0
 click==8.0.1
-Werkzeug==2.0.3
+werkzeug==2.0.3
 Jinja2==3.0.3
 MarkupSafe==2.0.1
 itsdangerous==2.0.1

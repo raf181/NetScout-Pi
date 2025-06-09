@@ -993,5 +993,131 @@ def create_app(config, plugin_manager, network_monitor):
             logger.error(f"Error getting uptime: {e}")
             return 0
     
-    # Return app with SocketIO
+    # Initialize SocketIO with the app
+    socketio.init_app(app, cors_allowed_origins="*")
+    
+    # Initialize web routes
+    init_routes(app, plugin_manager, socketio)
+    
+    # Return both SocketIO instance and app for proper server initialization
     return socketio, app
+
+def init_routes(app, plugin_manager, socketio):
+    """Initialize web routes for the application.
+    
+    Args:
+        app: Flask application instance.
+        plugin_manager: Plugin manager instance.
+        socketio: SocketIO instance.
+    """
+    # Store references
+    app.config['PLUGIN_MANAGER'] = plugin_manager
+    app.config['SOCKETIO'] = socketio
+    
+    @app.route('/')
+    def index():
+        """Main application page."""
+        return render_template('index.html')
+
+    @app.route('/plugins')
+    def plugins():
+        """Plugin management page."""
+        plugin_list = plugin_manager.get_plugins()
+        return render_template('plugins.html', plugins=plugin_list)
+        
+    @app.route('/results')
+    def results():
+        """View plugin execution results."""
+        return render_template('results.html')
+        
+    @app.route('/logs')
+    def logs():
+        """View application logs."""
+        return render_template('logs.html')
+        
+    @app.route('/settings')
+    def settings():
+        """Application settings page."""
+        return render_template('settings.html')
+        
+    @app.route('/api/plugins')
+    def api_plugins():
+        """API endpoint for plugin list."""
+        plugins = plugin_manager.get_plugins()
+        return jsonify(plugins)
+        
+    @app.route('/api/plugins/<plugin_id>/run', methods=['POST'])
+    def api_run_plugin(plugin_id):
+        """API endpoint to run a plugin.
+        
+        Args:
+            plugin_id: ID of the plugin to run.
+        """
+        # Get plugin parameters from request
+        params = request.json or {}
+        
+        # Run the plugin
+        try:
+            result = plugin_manager.run_plugin(plugin_id, **params)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+            
+    @app.route('/api/plugins/<plugin_id>/stop', methods=['POST'])
+    def api_stop_plugin(plugin_id):
+        """API endpoint to stop a running plugin.
+        
+        Args:
+            plugin_id: ID of the plugin to stop.
+        """
+        try:
+            plugin_manager.stop_plugin(plugin_id)
+            return jsonify({"status": "stopped"})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+            
+    @app.route('/api/results')
+    def api_results():
+        """API endpoint for plugin execution results."""
+        return jsonify(plugin_manager.get_results())
+        
+    @app.route('/api/logs')
+    def api_logs():
+        """API endpoint for application logs."""
+        try:
+            with open(app.config['NETPROBE_CONFIG'].get('logging.file'), 'r') as f:
+                logs = f.readlines()
+            return jsonify(logs)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+            
+    # Socket.IO event handlers
+    @socketio.on('connect')
+    def socket_connect():
+        """Handle client connection."""
+        emit('status', {'connected': True})
+        
+    @socketio.on('disconnect')
+    def socket_disconnect():
+        """Handle client disconnection."""
+        pass
+        
+    @socketio.on('run_plugin')
+    def socket_run_plugin(data):
+        """Run a plugin via Socket.IO.
+        
+        Args:
+            data: Dictionary containing plugin_id and parameters.
+        """
+        plugin_id = data.get('plugin_id')
+        params = data.get('params', {})
+        
+        if not plugin_id:
+            emit('error', {'message': 'Missing plugin_id'})
+            return
+            
+        try:
+            result = plugin_manager.run_plugin(plugin_id, **params)
+            emit('plugin_result', {'plugin_id': plugin_id, 'result': result})
+        except Exception as e:
+            emit('error', {'message': str(e)})

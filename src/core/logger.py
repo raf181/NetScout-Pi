@@ -83,41 +83,58 @@ def setup_logging(log_dir=None, log_level=logging.INFO, debug=False, file_loggin
 
 
 class PluginLogger:
-    """Logger for plugin execution and results."""
+    """Logger class for plugins with result storage."""
     
     def __init__(self, plugin_name, log_dir=None):
         """Initialize plugin logger.
         
         Args:
-            plugin_name (str): Name of the plugin.
-            log_dir (str, optional): Directory for log files. Defaults to None.
+            plugin_name (str): Name of the plugin
+            log_dir (str, optional): Directory for log files. Defaults to DEFAULT_LOG_DIR.
         """
         self.plugin_name = plugin_name
+        self.log_dir = log_dir or DEFAULT_LOG_DIR
+        self.plugin_log_dir = os.path.join(self.log_dir, 'plugins', plugin_name)
+        self.results_dir = os.path.join(self.plugin_log_dir, 'results')
         
-        # Set log directory
-        base_log_dir = log_dir or DEFAULT_LOG_DIR
-        self.log_dir = os.path.join(base_log_dir, plugin_name)
+        # Create required directories
+        os.makedirs(self.plugin_log_dir, exist_ok=True)
+        os.makedirs(self.results_dir, exist_ok=True)
         
-        # Create directories
-        os.makedirs(self.log_dir, exist_ok=True)
-        os.makedirs(os.path.join(self.log_dir, 'results'), exist_ok=True)
-        os.makedirs(os.path.join(self.log_dir, 'errors'), exist_ok=True)
+        # Set up logger
+        self.logger = logging.getLogger(f'plugin.{plugin_name}')
+        self.logger.setLevel(logging.INFO)
         
-        # Initialize logger
-        self.logger = logging.getLogger(f"plugin.{plugin_name}")
-        
-        # Setup plugin log file
-        log_file = os.path.join(self.log_dir, f"{plugin_name}.log")
-        if not any(isinstance(h, logging.FileHandler) for h in self.logger.handlers):
-            handler = logging.handlers.RotatingFileHandler(
-                log_file, maxBytes=MAX_LOG_SIZE, backupCount=MAX_LOG_BACKUPS)
-            handler.setFormatter(logging.Formatter(LOG_FORMAT))
-            self.logger.addHandler(handler)
-        
-        # Current run info
-        self.current_run_id = None
-        self.run_start_time = None
-        self.log_buffer = []
+        # Add file handler if not already present
+        if not self.logger.handlers:
+            log_file = os.path.join(self.plugin_log_dir, 'plugin.log')
+            file_handler = logging.handlers.RotatingFileHandler(
+                log_file,
+                maxBytes=MAX_LOG_SIZE,
+                backupCount=MAX_LOG_BACKUPS
+            )
+            file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+            self.logger.addHandler(file_handler)
+    
+    def debug(self, msg, *args, **kwargs):
+        """Log debug message."""
+        return self.logger.debug(msg, *args, **kwargs)
+    
+    def info(self, msg, *args, **kwargs):
+        """Log info message."""
+        return self.logger.info(msg, *args, **kwargs)
+    
+    def warning(self, msg, *args, **kwargs):
+        """Log warning message."""
+        return self.logger.warning(msg, *args, **kwargs)
+    
+    def error(self, msg, *args, **kwargs):
+        """Log error message."""
+        return self.logger.error(msg, *args, **kwargs)
+    
+    def critical(self, msg, *args, **kwargs):
+        """Log critical message."""
+        return self.logger.critical(msg, *args, **kwargs)
     
     def start_run(self):
         """Start a new plugin run.
@@ -149,37 +166,6 @@ class PluginLogger:
             self.current_run_id = None
             self.run_start_time = None
             self.log_buffer = []
-    
-    def log(self, message, level='INFO'):
-        """Log a message.
-        
-        Args:
-            message (str): Message to log.
-            level (str, optional): Log level. Defaults to 'INFO'.
-        """
-        # Get current timestamp
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
-        # Format message
-        formatted_message = f"{timestamp} - {level} - {message}"
-        
-        # Buffer message if this is part of a run
-        if self.current_run_id:
-            self.log_buffer.append(formatted_message)
-        
-        # Log with appropriate level
-        if level == 'DEBUG':
-            self.logger.debug(message)
-        elif level == 'INFO':
-            self.logger.info(message)
-        elif level == 'WARNING':
-            self.logger.warning(message)
-        elif level == 'ERROR':
-            self.logger.error(message)
-        elif level == 'CRITICAL':
-            self.logger.critical(message)
-        else:
-            self.logger.info(message)
     
     def save_result(self, result):
         """Save plugin result.

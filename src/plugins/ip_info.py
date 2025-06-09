@@ -37,142 +37,83 @@ class IPInfoPlugin(PluginBase):
             dict: IP information.
         """
         # Use specified interface or get from config
-        interface = interface or self.config.get('interface') or 'eth0'
+        interface = interface or self.config.get('interface')
         
+        # If no interface specified or not found, auto-detect
+        if not interface or interface not in netifaces.interfaces():
+            self.logger.info("Interface not specified or not found, auto-detecting...")
+            # Get all non-loopback interfaces
+            available_interfaces = [iface for iface in netifaces.interfaces() 
+                                 if iface != 'lo' and not iface.startswith(('dummy', 'tun', 'tap'))]
+            if available_interfaces:
+                interface = available_interfaces[0]
+                self.logger.info(f"Auto-selected interface: {interface}")
+            else:
+                interface = None
+                self.logger.error("No suitable network interfaces found")
+                return {"error": "No suitable network interfaces found"}
+
         self.logger.info(f"Collecting IP information for interface: {interface}")
         
-        result = {
-            'timestamp': self.logger.get_timestamp(),
-            'interface': interface,
-            'status': 'up' if self._is_interface_up(interface) else 'down',
-            'addresses': {},
-            'gateway': None,
-            'dns_servers': [],
-            'hostname': socket.gethostname(),
-            'fqdn': socket.getfqdn(),
-            'mac_address': None,
-            'link_detected': self._check_link_status(interface),
-            'routing_table': self._get_routing_table(),
-            'error': None
-        }
-        
         try:
-            # Check if interface exists
-            if interface not in netifaces.interfaces():
-                raise ValueError(f"Interface {interface} not found")
-            
-            # Get MAC address
-            try:
+            # Get interface details
+            info = {}
+            if interface in netifaces.interfaces():
+                info['interface'] = interface
                 addrs = netifaces.ifaddresses(interface)
-                if netifaces.AF_LINK in addrs:
-                    result['mac_address'] = addrs[netifaces.AF_LINK][0].get('addr')
-            except Exception as e:
-                self.logger.warning(f"Failed to get MAC address: {str(e)}")
-            
-            # Get IP addresses (IPv4 and IPv6)
-            try:
-                if netifaces.AF_INET in addrs:
-                    inet_info = addrs[netifaces.AF_INET][0]
-                    result['addresses']['ipv4'] = {
-                        'address': inet_info.get('addr'),
-                        'netmask': inet_info.get('netmask'),
-                        'broadcast': inet_info.get('broadcast')
-                    }
-                    
-                    # Calculate CIDR notation
-                    if inet_info.get('addr') and inet_info.get('netmask'):
-                        netmask = inet_info.get('netmask')
-                        cidr = sum([bin(int(x)).count('1') for x in netmask.split('.')])
-                        result['addresses']['ipv4']['cidr'] = f"{inet_info.get('addr')}/{cidr}"
                 
-                if netifaces.AF_INET6 in addrs:
-                    result['addresses']['ipv6'] = [
-                        {
-                            'address': x.get('addr').split('%')[0],
-                            'scope': x.get('addr').split('%')[1] if '%' in x.get('addr', '') else None
-                        }
-                        for x in addrs[netifaces.AF_INET6]
-                    ]
-            except Exception as e:
-                self.logger.warning(f"Failed to get IP addresses: {str(e)}")
-            
-            # Get default gateway
-            try:
-                gateways = netifaces.gateways()
-                if 'default' in gateways and netifaces.AF_INET in gateways['default']:
-                    result['gateway'] = gateways['default'][netifaces.AF_INET][0]
-            except Exception as e:
-                self.logger.warning(f"Failed to get gateway: {str(e)}")
-            
-            # Get DNS servers
-            try:
-                result['dns_servers'] = self._get_dns_servers()
-            except Exception as e:
-                self.logger.warning(f"Failed to get DNS servers: {str(e)}")
-            
-            # Get DHCP status
-            try:
-                result['dhcp'] = self._is_dhcp(interface)
-            except Exception as e:
-                self.logger.warning(f"Failed to determine DHCP status: {str(e)}")
-                result['dhcp'] = 'unknown'
+                # MAC address
+                if netifaces.AF_LINK in addrs and addrs[netifaces.AF_LINK]:
+                    info['mac'] = addrs[netifaces.AF_LINK][0].get('addr')
                 
+                # IPv4 info
+                if netifaces.AF_INET in addrs and addrs[netifaces.AF_INET]:
+                    info['ipv4'] = {}
+                    info['ipv4']['address'] = addrs[netifaces.AF_INET][0].get('addr')
+                    info['ipv4']['netmask'] = addrs[netifaces.AF_INET][0].get('netmask')
+                
+                # IPv6 info
+                if netifaces.AF_INET6 in addrs and addrs[netifaces.AF_INET6]:
+                    info['ipv6'] = {}
+                    # Filter out link-local addresses
+                    ipv6_addrs = [addr for addr in addrs[netifaces.AF_INET6]
+                                if not addr['addr'].startswith('fe80:')]
+                    if ipv6_addrs:
+                        info['ipv6']['address'] = ipv6_addrs[0]['addr'].split('%')[0]
+                        info['ipv6']['netmask'] = ipv6_addrs[0].get('netmask')
+                
+                # Gateway info
+                try:
+                    gws = netifaces.gateways()
+                    if 'default' in gws and netifaces.AF_INET in gws['default']:
+                        info['gateway'] = gws['default'][netifaces.AF_INET][0]
+                except Exception as e:
+                    self.logger.error(f"Error fetching gateway info: {str(e)}")
+                
+                # DNS servers
+                try:
+                    with open('/etc/resolv.conf', 'r') as f:
+                        resolv = f.readlines()
+                    dns_servers = []
+                    for line in resolv:
+                        if line.startswith('nameserver'):
+                            dns_servers.append(line.split()[1])
+                    if dns_servers:
+                        info['dns_servers'] = dns_servers
+                except Exception as e:
+                    self.logger.error(f"Error fetching DNS servers: {str(e)}")
+            else:
+                self.logger.error(f"Interface {interface} not found")
+                return {"error": f"Interface {interface} not found"}
+
+            # Calculate success rate
+            values_present = sum(1 for k in ['interface', 'mac', 'ipv4', 'gateway', 'dns_servers'] if k in info)
+            success_rate = (values_present / 5.0) * 100  # 5 is the total number of expected fields
+            info['success_rate'] = success_rate
+            
+            self.logger.info("IP information collection completed for {interface}")
+            return info
+
         except Exception as e:
-            result['error'] = str(e)
             self.logger.error(f"Error collecting IP information: {str(e)}")
-        
-        self.logger.info(f"IP information collection completed for {interface}")
-        return result
-    
-    def _is_interface_up(self, interface):
-        """Check if interface is up."""
-        try:
-            with open(f"/sys/class/net/{interface}/operstate", 'r') as f:
-                state = f.read().strip()
-                return state.lower() == 'up'
-        except Exception:
-            return False
-    
-    def _check_link_status(self, interface):
-        """Check if link is detected on interface."""
-        try:
-            with open(f"/sys/class/net/{interface}/carrier", 'r') as f:
-                carrier = f.read().strip()
-                return carrier == '1'
-        except Exception:
-            return False
-    
-    def _get_dns_servers(self):
-        """Get DNS servers from /etc/resolv.conf."""
-        dns_servers = []
-        try:
-            with open('/etc/resolv.conf', 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith('nameserver'):
-                        parts = line.split()
-                        if len(parts) >= 2:
-                            dns_servers.append(parts[1])
-        except Exception as e:
-            self.logger.warning(f"Failed to read /etc/resolv.conf: {str(e)}")
-        
-        return dns_servers
-    
-    def _is_dhcp(self, interface):
-        """Check if interface is using DHCP."""
-        try:
-            # Check if dhclient is running for this interface
-            output = subprocess.check_output(['ps', 'aux'], text=True)
-            return bool(re.search(f'dhclient.*{interface}', output))
-        except Exception as e:
-            self.logger.warning(f"Failed to check DHCP status: {str(e)}")
-            return 'unknown'
-    
-    def _get_routing_table(self):
-        """Get routing table."""
-        try:
-            output = subprocess.check_output(['ip', 'route', 'show'], text=True)
-            return output.splitlines()
-        except Exception as e:
-            self.logger.warning(f"Failed to get routing table: {str(e)}")
-            return []
+            return {"error": str(e), "success_rate": 0}
