@@ -1,13 +1,10 @@
 #!/bin/bash
-# NetProbe Pi - Enhanced Auto Fix Script v2
-# This script automatically fixes common issues with NetProbe Pi installation
-# Updated to handle systems without dhcpcd and with NetworkManager
+# NetScout-Pi - Enhanced Auto Fix Script v2
+# Legacy wrapper for the unified installer
 
-set -e
-
-echo "NetProbe Pi - Enhanced Auto Fix Script v2"
+echo "NetScout-Pi - Enhanced Auto Fix Script v2"
 echo "============================="
-echo "This will automatically fix common issues with NetProbe Pi."
+echo "This will automatically fix common issues with NetScout-Pi."
 echo
 
 # Check if running as root
@@ -16,11 +13,34 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-echo "Applying all fixes automatically..."
+    exit 1
+fi
 
-# Fix hostname resolution first
-echo "1. Fixing hostname resolution..."
-if grep -q "netprobe" /etc/hosts; then
+echo "Using unified installer in fix mode..."
+
+# Just call the unified installer with fix parameter
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+INSTALLER_PATH="$SCRIPT_DIR/unified_installer.sh"
+
+# If the unified installer exists locally, use it
+if [ -f "$INSTALLER_PATH" ]; then
+    sudo bash "$INSTALLER_PATH" fix
+else
+    # Otherwise download and run it
+    TMP_DIR=$(mktemp -d)
+    cd "$TMP_DIR"
+    
+    echo "Downloading NetScout-Pi unified installer script..."
+    wget -q https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/unified_installer.sh -O unified_installer.sh
+    chmod +x unified_installer.sh
+    
+    echo "Running unified installer in fix mode..."
+    sudo bash unified_installer.sh fix
+    
+    # Clean up
+    cd /tmp
+    rm -rf "$TMP_DIR"
+fi
     echo "   - Hostname already in /etc/hosts"
 else
     echo "127.0.1.1 netprobe" >> /etc/hosts

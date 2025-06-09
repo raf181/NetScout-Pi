@@ -1,11 +1,11 @@
 #!/bin/bash
-# NetProbe Pi - Setup Script for Raspberry Pi Zero 2 W
-# This script should be run on a fresh installation of Raspberry Pi OS Lite
+# NetScout-Pi - Setup Script for Raspberry Pi
+# This script has been replaced by the unified installer
 
-set -e
-
-echo "NetProbe Pi - Initial Setup"
+echo "NetScout-Pi - Initial Setup"
 echo "============================="
+echo "This script has been replaced by the unified installer."
+echo "Running the unified installer instead."
 echo
 
 # Check if running as root
@@ -14,10 +14,22 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-# Detect if system is Raspberry Pi
-if [ -f /proc/device-tree/model ] && grep -q "Raspberry Pi" /proc/device-tree/model; then
-    IS_RASPBERRY_PI=true
-    echo "Detected Raspberry Pi system"
+# Create temporary directory
+TMP_DIR=$(mktemp -d)
+cd "$TMP_DIR"
+
+echo "Downloading NetScout-Pi unified installer script..."
+wget -q https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/unified_installer.sh -O unified_installer.sh
+chmod +x unified_installer.sh
+
+echo "Running unified installer script..."
+bash unified_installer.sh
+
+# Clean up
+cd /tmp
+rm -rf "$TMP_DIR"
+
+exit 0
 else
     IS_RASPBERRY_PI=false
     echo "Non-Raspberry Pi system detected. Some features may not work as expected."

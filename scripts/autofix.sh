@@ -1,13 +1,10 @@
 #!/bin/bash
-# NetProbe Pi - Auto Fix Script
-# This script automatically fixes common issues with NetProbe Pi installation
-# Non-interactive version for use with curl | bash
+# NetScout-Pi - Auto Fix Script
+# Legacy wrapper for the unified installer
 
-set -e
-
-echo "NetProbe Pi - Auto Fix Script"
+echo "NetScout-Pi - Auto Fix Script"
 echo "============================="
-echo "This will automatically fix common issues with NetProbe Pi."
+echo "This will automatically fix common issues with NetScout-Pi."
 echo
 
 # Check if running as root
@@ -15,10 +12,34 @@ if [ "$(id -u)" -ne 0 ]; then
     echo "This script must be run as root. Try 'sudo bash' before running this script."
     exit 1
 fi
+    exit 1
+fi
 
-echo "Applying all fixes automatically..."
+echo "Using unified installer in fix mode..."
 
-# Fix WiFi issues
+# Just call the unified installer with fix parameter
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+INSTALLER_PATH="$SCRIPT_DIR/unified_installer.sh"
+
+# If the unified installer exists locally, use it
+if [ -f "$INSTALLER_PATH" ]; then
+    sudo bash "$INSTALLER_PATH" fix
+else
+    # Otherwise download and run it
+    TMP_DIR=$(mktemp -d)
+    cd "$TMP_DIR"
+    
+    echo "Downloading NetScout-Pi unified installer script..."
+    wget -q https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/unified_installer.sh -O unified_installer.sh
+    chmod +x unified_installer.sh
+    
+    echo "Running unified installer in fix mode..."
+    sudo bash unified_installer.sh fix
+    
+    # Clean up
+    cd /tmp
+    rm -rf "$TMP_DIR"
+fi
 echo "1. Fixing WiFi issues..."
 
 # Unblock WiFi

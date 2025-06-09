@@ -1,17 +1,14 @@
 #!/bin/bash
-# NetProbe Pi - Enhanced Direct Installer
+# NetScout-Pi - Direct Installer
 # This script can be used with curl | bash for a one-line installation
-
-# Exit on error
-set -e
 
 # Create temporary directory
 TMP_DIR=$(mktemp -d)
 cd "$TMP_DIR"
 
-echo "NetProbe Pi - Direct Installer"
+echo "NetScout-Pi - Direct Installer"
 echo "============================="
-echo "This will install NetProbe Pi on your system."
+echo "This will install NetScout-Pi on your system."
 echo
 
 # Check if running as root
@@ -20,12 +17,16 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-# Install basic requirements
-echo "Installing basic requirements..."
-apt-get update 
-apt-get install -y wget unzip python3 python3-pip git nmap tcpdump arp-scan speedtest-cli ifplugd avahi-daemon iproute2 dnsmasq hostapd
+echo "Downloading NetScout-Pi unified installer script..."
+wget -q https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/unified_installer.sh -O unified_installer.sh
+chmod +x unified_installer.sh
 
-# Install Python packages system-wide to avoid virtual environment issues
+echo "Running unified installer script..."
+bash unified_installer.sh
+
+# Clean up
+cd /tmp
+rm -rf "$TMP_DIR"
 echo "Installing Python packages system-wide..."
 apt-get install -y python3-flask python3-dotenv python3-click python3-watchdog python3-psutil \
                   python3-netifaces python3-yaml python3-jsonschema python3-bcrypt python3-jwt \

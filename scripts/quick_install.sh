@@ -1,6 +1,6 @@
 #!/bin/bash
-# NetProbe Pi - Quick Installer
-# This script downloads and installs NetProbe Pi directly without using git
+# NetScout-Pi - Quick Installer
+# This script downloads and installs NetScout-Pi directly without using git
 
 # Check if running as root
 if [ "$(id -u)" -ne 0 ]; then
@@ -8,9 +8,25 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-echo "NetProbe Pi - Quick Installer"
+echo "NetScout-Pi - Quick Installer"
 echo "============================"
+echo "This script is deprecated. Using unified installer instead."
 echo
+
+# Create temporary directory
+TMP_DIR=$(mktemp -d)
+cd "$TMP_DIR"
+
+echo "Downloading NetScout-Pi unified installer script..."
+wget -q https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/unified_installer.sh -O unified_installer.sh
+chmod +x unified_installer.sh
+
+echo "Running unified installer script..."
+bash unified_installer.sh
+
+# Clean up
+cd /tmp
+rm -rf "$TMP_DIR"
 
 # Install required packages
 echo "Installing required packages..."

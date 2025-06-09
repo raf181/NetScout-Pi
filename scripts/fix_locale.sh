@@ -1,40 +1,52 @@
 #!/bin/bash
-# NetProbe Pi - Locale Fix Script
-# This script fixes locale issues that might cause high CPU usage
+# NetScout-Pi - Locale Fix Script
+# This script has been integrated into the unified installer
+# Running the standalone fix script for locale issues
 
-set -e
-
-echo "NetProbe Pi - Locale Fix Script"
+echo "NetScout-Pi - Locale Fix Script"
 echo "============================="
-echo "This will fix locale-related issues on your system."
+echo "This script has been integrated into the unified installer."
+echo "Running the fix function from the unified installer instead."
 echo
 
-# Check if running as root
-if [ "$(id -u)" -ne 0 ]; then
-    echo "This script must be run as root. Try 'sudo bash' before running this script."
-    exit 1
-fi
+# Create temporary directory
+TMP_DIR=$(mktemp -d)
+cd "$TMP_DIR"
 
-# Check if localedef is running and kill it if it's using too much CPU
-LOCALEDEF_PID=$(pgrep localedef || true)
-if [ -n "$LOCALEDEF_PID" ]; then
-    echo "Found localedef process (PID: $LOCALEDEF_PID), checking CPU usage..."
-    CPU_USAGE=$(ps -p $LOCALEDEF_PID -o %cpu= | tr -d ' ')
-    echo "Current CPU usage: $CPU_USAGE%"
+# Download and run the unified installer in fix mode
+wget -q https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/unified_installer.sh -O unified_installer.sh
+chmod +x unified_installer.sh
+
+# Run just the locale fix portion (extract from unified_installer.sh)
+sudo bash -c "
+    # Create log directory
+    mkdir -p /var/log/netprobe
     
-    if [ $(echo "$CPU_USAGE > 50" | bc 2>/dev/null || echo "1") -eq 1 ]; then
-        echo "Terminating high-CPU localedef process..."
-        kill -9 $LOCALEDEF_PID
-        sleep 1
+    # Set default locale without regenerating
+    echo 'LANG=\"en_US.UTF-8\"' > /etc/default/locale
+    echo 'LC_ALL=\"en_US.UTF-8\"' >> /etc/default/locale
+    
+    # Only generate the locale if it's not already there
+    if ! locale -a 2>/dev/null | grep -q \"en_US.utf8\"; then
+        if [ -f /etc/locale.gen ]; then
+            sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+            # Use timeout to prevent high CPU usage
+            timeout 10s locale-gen || echo \"Locale generation timed out, continuing anyway\"
+        fi
+    else
+        echo \"Locale en_US.UTF-8 already exists\"
     fi
-else
-    echo "No localedef process currently running."
-fi
+    
+    echo \"Locale fix completed.\"
+"
 
-# Set default locale without regenerating
-echo "Setting default locale to en_US.UTF-8..."
-echo 'LANG="en_US.UTF-8"' > /etc/default/locale
-echo 'LC_ALL="en_US.UTF-8"' >> /etc/default/locale
+# Clean up
+cd /tmp
+rm -rf "$TMP_DIR"
+
+echo
+echo "Locale configuration completed."
+echo "You may need to reboot or log out and back in for changes to take full effect."
 
 # Check if we have the locale already
 if locale -a 2>/dev/null | grep -q "en_US.utf8"; then
