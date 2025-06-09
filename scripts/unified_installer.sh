@@ -986,7 +986,7 @@ fix() {
         log_warning "NetScout-Pi not found in $INSTALL_DIR, will attempt to install"
         install
         return
-    }
+    fi
     
     log "Diagnosing issues..."
     
