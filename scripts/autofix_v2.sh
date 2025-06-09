@@ -61,11 +61,31 @@ fi
 
 # Fix locale issues
 echo "   - Fixing locale issues..."
-if ! locale-gen en_US.UTF-8 > /dev/null 2>&1; then
-    echo "     locale-gen command not found or failed"
+# Only generate the locale if it's not already there
+if ! locale -a 2>/dev/null | grep -q "en_US.utf8"; then
+    echo "     Locale en_US.UTF-8 not found, attempting to generate (this may take a moment)..."
+    if ! command -v locale-gen >/dev/null 2>&1; then
+        echo "     locale-gen command not found, skipping locale generation"
+    else
+        # Check if localedef is already running and kill it if it's using too much CPU
+        LOCALEDEF_PID=$(pgrep localedef || true)
+        if [ -n "$LOCALEDEF_PID" ]; then
+            CPU_USAGE=$(ps -p $LOCALEDEF_PID -o %cpu | tail -n 1 | tr -d ' ')
+            if [ $(echo "$CPU_USAGE > 90" | bc -l 2>/dev/null || echo "1") -eq 1 ]; then
+                echo "     Terminating existing high-CPU localedef process..."
+                kill -9 $LOCALEDEF_PID 2>/dev/null || true
+                sleep 1
+            fi
+        fi
+        
+        # Set a timeout for locale-gen to prevent it from running too long
+        timeout 10s locale-gen en_US.UTF-8 > /dev/null 2>&1 || echo "     Locale generation timed out, continuing anyway"
+    fi
 else
-    echo "     Generated en_US.UTF-8 locale"
+    echo "     Locale en_US.UTF-8 already exists"
 fi
+
+# Set default locale without regenerating
 echo 'LANG="en_US.UTF-8"' > /etc/default/locale
 echo "     Set default locale to en_US.UTF-8"
 

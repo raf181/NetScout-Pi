@@ -207,6 +207,36 @@ wget https://github.com/raf181/NetScout-Pi/archive/refs/heads/main.zip
 unzip main.zip
 ```
 
+### Locale Issues and High CPU Usage
+
+If you notice high CPU usage during installation or when running the fix scripts, it might be due to the `localedef` process which generates locale data. This can happen on some systems and cause them to become slow or unresponsive.
+
+To fix this issue:
+
+1. Check if localedef is using high CPU:
+   ```bash
+   top
+   ```
+   Look for a process called `localedef` with high CPU usage.
+
+2. Run our dedicated locale fix script:
+   ```bash
+   curl -sSL https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/fix_locale.sh | sudo bash
+   ```
+
+3. If the above doesn't work, manually terminate the localedef process:
+   ```bash
+   sudo pkill -9 localedef
+   ```
+
+4. Set the locale manually without generating it:
+   ```bash
+   echo 'LANG="en_US.UTF-8"' | sudo tee /etc/default/locale
+   export LANG=en_US.UTF-8
+   ```
+
+The enhanced autofix_v2.sh script has been updated to prevent locale generation from consuming too much CPU.
+
 ## First Boot Configuration
 
 On first boot, NetProbe Pi will:
