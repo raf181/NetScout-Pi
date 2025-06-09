@@ -1,0 +1,123 @@
+{% extends "layout.html" %}
+
+{% block title %}NetScout-Pi - Results History{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>Results History</h4>
+            <button id="refresh-results" class="btn btn-sm btn-light">
+                <i class="fas fa-sync-alt me-1"></i> Refresh
+            </button>
+        </div>
+        <div class="card-body">
+            <div id="results-container">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-info" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading results...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Load results on page load
+        loadResults();
+        
+        // Refresh button
+        $('#refresh-results').click(function() {
+            loadResults();
+        });
+        
+        function loadResults() {
+            $('#results-container').html(`
+                <div class="text-center py-4">
+                    <div class="spinner-border text-info" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading results...</p>
+                </div>
+            `);
+            
+            // Fetch results from API
+            $.getJSON('/api/results', function(data) {
+                if (!data || data.length === 0) {
+                    $('#results-container').html(`
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            No results found. Run some plugins to see results here.
+                        </div>
+                    `);
+                    return;
+                }
+                
+                // Group results by date
+                const resultsByDate = {};
+                data.forEach(result => {
+                    const date = new Date(result.timestamp).toLocaleDateString();
+                    if (!resultsByDate[date]) {
+                        resultsByDate[date] = [];
+                    }
+                    resultsByDate[date].push(result);
+                });
+                
+                // Build HTML
+                let html = '';
+                
+                for (const date in resultsByDate) {
+                    html += `
+                        <h5 class="border-bottom pb-2 mt-4">${date}</h5>
+                        <div class="list-group mb-4">
+                    `;
+                    
+                    resultsByDate[date].forEach(result => {
+                        const time = new Date(result.timestamp).toLocaleTimeString();
+                        const pluginName = result.plugin?.name || 'Unknown Plugin';
+                        let statusIcon = '';
+                        
+                        if (result.error) {
+                            statusIcon = '<i class="fas fa-exclamation-circle text-danger me-2"></i>';
+                        } else if (result.success === false) {
+                            statusIcon = '<i class="fas fa-times-circle text-warning me-2"></i>';
+                        } else {
+                            statusIcon = '<i class="fas fa-check-circle text-success me-2"></i>';
+                        }
+                        
+                        html += `
+                            <a href="/results/${result.run_id}" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">${statusIcon}${pluginName}</h6>
+                                    <small>${time}</small>
+                                </div>
+                                <p class="mb-1">${result.summary || 'No summary available'}</p>
+                                <small class="text-muted">
+                                    Duration: ${result.duration ? (result.duration.toFixed(2) + 's') : 'N/A'}
+                                    | Interface: ${result.interface || 'N/A'}
+                                </small>
+                            </a>
+                        `;
+                    });
+                    
+                    html += `</div>`;
+                }
+                
+                $('#results-container').html(html);
+            }).fail(function() {
+                $('#results-container').html(`
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Failed to load results. Please try again later.
+                    </div>
+                `);
+            });
+        }
+    });
+</script>
+{% endblock %}

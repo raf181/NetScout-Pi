@@ -358,6 +358,24 @@ def create_app(config, plugin_manager, network_monitor):
     def settings():
         return render_template('settings.html')
     
+    @app.route('/plugins')
+    @login_required
+    def plugins():
+        """Plugin management page."""
+        return render_template('plugins.html')
+    
+    @app.route('/results')
+    @login_required
+    def results():
+        """Results overview page."""
+        return render_template('results.html')
+    
+    @app.route('/results/<run_id>')
+    @login_required
+    def result_detail(run_id):
+        """Detailed result view for a specific run."""
+        return render_template('result_detail.html', run_id=run_id)
+    
     # API routes
     @app.route('/api/status')
     @login_required
@@ -738,6 +756,86 @@ def create_app(config, plugin_manager, network_monitor):
             
         except Exception as e:
             logger.error(f"Error running sequence: {str(e)}")
+            return jsonify({"error": str(e)}), 500
+    
+    @app.route('/api/results')
+    @login_required
+    def api_results():
+        """Get all results."""
+        # This is a simplified implementation
+        results = []
+        try:
+            # Assuming each plugin stores its results in a directory structure
+            for plugin_name in plugin_manager.get_plugin_names():
+                plugin = plugin_manager.get_plugin(plugin_name)
+                if hasattr(plugin, 'logger') and hasattr(plugin.logger, 'get_recent_runs'):
+                    plugin_results = plugin.logger.get_recent_runs()
+                    for result in plugin_results:
+                        result['plugin_name'] = plugin_name
+                        results.append(result)
+            
+            # Sort by timestamp (newest first)
+            results.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+            return jsonify(results)
+        except Exception as e:
+            logger.error(f"Error getting results: {e}")
+            return jsonify({"error": str(e)}), 500
+    
+    @app.route('/api/results/recent')
+    @login_required
+    def api_recent_results():
+        """Get recent results (last 10)."""
+        try:
+            # Get all results and return the most recent 10
+            all_results = api_results().json
+            return jsonify(all_results[:10] if isinstance(all_results, list) else [])
+        except Exception as e:
+            logger.error(f"Error getting recent results: {e}")
+            return jsonify({"error": str(e)}), 500
+    
+    @app.route('/api/results/<run_id>')
+    @login_required
+    def api_result_detail(run_id):
+        """Get details for a specific result."""
+        try:
+            # Search for the result across all plugins
+            for plugin_name in plugin_manager.get_plugin_names():
+                plugin = plugin_manager.get_plugin(plugin_name)
+                if not (hasattr(plugin, 'logger') and hasattr(plugin.logger, 'get_run')):
+                    continue
+                
+                result = plugin.logger.get_run(run_id)
+                if result:
+                    result['plugin_name'] = plugin_name
+                    return jsonify(result)
+            
+            return jsonify({"error": "Result not found"}), 404
+        except Exception as e:
+            logger.error(f"Error getting result detail: {e}")
+            return jsonify({"error": str(e)}), 500
+    
+    @app.route('/api/results/<run_id>/export')
+    @login_required
+    def api_export_result(run_id):
+        """Export a specific result as JSON."""
+        try:
+            # Get the result
+            result_response = api_result_detail(run_id)
+            if isinstance(result_response, tuple) and result_response[1] != 200:
+                return result_response
+            
+            result = result_response.json
+            
+            # Create a response with the result as a downloadable file
+            response = Response(
+                json.dumps(result, indent=2),
+                mimetype='application/json',
+                headers={'Content-Disposition': f'attachment;filename=result_{run_id}.json'}
+            )
+            
+            return response
+        except Exception as e:
+            logger.error(f"Error exporting result: {e}")
             return jsonify({"error": str(e)}), 500
     
     # SocketIO events
