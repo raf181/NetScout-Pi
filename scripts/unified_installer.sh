@@ -141,14 +141,16 @@ create_directories() {
     mkdir -p $INSTALL_DIR/src/plugins
     mkdir -p $INSTALL_DIR/sequences
     
-    # Set proper permissions immediately
-    if getent passwd $USER > /dev/null && getent group $GROUP > /dev/null; then
-        chown -R $USER:$GROUP $INSTALL_DIR
-        chown -R $USER:$GROUP $LOG_DIR
-        log "Directory permissions set to $USER:$GROUP"
-    else
-        log_warning "User $USER or group $GROUP not found, permissions will be set later"
-    fi
+    # Set proper permissions immediately - root ownership for service
+    log "Setting initial directory permissions..."
+    chown -R root:root $INSTALL_DIR
+    chown -R root:root $CONFIG_DIR
+    
+    # Ensure log directory is accessible
+    chown -R root:root $LOG_DIR
+    chmod -R 775 $LOG_DIR
+    
+    log "Initial directory permissions set"
 }
 
 # Install required packages with error handling
@@ -257,18 +259,20 @@ download_repo() {
 set_permissions() {
     print_section "Setting File Permissions"
     
-    # Check if user and group exist
+    # Set permissions for root to ensure proper service execution
+    log "Setting ownership to root:root for service execution..."
+    chown -R root:root $INSTALL_DIR
+    chown -R root:root $LOG_DIR
+    chown -R root:root $CONFIG_DIR
+    
+    # Make sure user can still access logs
     if getent passwd $USER > /dev/null && getent group $GROUP > /dev/null; then
-        log "Setting ownership to $USER:$GROUP..."
-        
-        # Set ownership recursively for all relevant directories
-        chown -R $USER:$GROUP $INSTALL_DIR
-        chown -R $USER:$GROUP $LOG_DIR
-        chown -R $USER:$GROUP $CONFIG_DIR
-        
-        log "Ownership set to $USER:$GROUP"
+        # Set group permissions to allow access
+        chmod -R 775 $LOG_DIR
+        chown -R root:$GROUP $LOG_DIR
+        log "Log directory accessible by group $GROUP"
     else
-        log_error "User $USER or group $GROUP not found, skipping ownership changes"
+        log_warning "User $USER or group $GROUP not found, using root-only permissions"
     fi
     
     # Make scripts executable
@@ -326,8 +330,9 @@ Wants=avahi-daemon.service dnsmasq.service hostapd.service
 
 [Service]
 Type=simple
-User=$USER
-Group=$GROUP
+# Run as root since the application needs elevated privileges
+User=root
+Group=root
 WorkingDirectory=$INSTALL_DIR
 ExecStart=/usr/bin/python3 $INSTALL_DIR/app.py
 Restart=on-failure
