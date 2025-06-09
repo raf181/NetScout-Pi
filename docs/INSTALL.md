@@ -1,38 +1,78 @@
-# Installation Guide for NetProbe Pi
+# NetScout-Pi Installation Guide
 
-This guide will walk you through setting up NetProbe Pi on a Raspberry Pi Zero 2 W or any Debian-based system.
+## Quick Installation (Recommended)
 
-## Prerequisites
-
-- Raspberry Pi Zero 2 W (or any Debian-based system)
-- MicroSD card (at least 8GB)
-- USB-Ethernet adapter
-- Power supply for Raspberry Pi
-- Computer with SD card reader
-- WiFi network for admin access
-
-## Installation Methods
-
-### Method 1: One-Line Direct Installation (Recommended)
-
-This is the simplest way to install NetProbe Pi. Run the following command on your system:
+Install NetScout-Pi with a single command:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/direct_install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/raf181/NetScout-Pi/main/scripts/netscout_installer.sh | sudo bash
 ```
 
 This script will:
-1. Download the NetProbe Pi repository
+
+1. Download the NetScout-Pi repository
 2. Install all required dependencies
-3. Set up the service
-4. Configure the system for first boot
+3. Set up the system service
+4. Configure WiFi access point
+5. Start the web interface
 
-Once the installation is complete, you can access the web interface at http://netprobe.local or the IP address of your device.
+After installation completes:
 
-### Method 2: Manual Installation
+1. Connect to the `NetScout` WiFi network (Password: `netscout123`)
+2. Open a web browser and navigate to [http://netscout.local](http://netscout.local) or [http://192.168.4.1](http://192.168.4.1)
+3. Set your admin password on first login
 
-If you prefer to perform a manual installation or if you're having issues with the one-line installer:
-   Default password is `raspberry`
+## Supported Systems
+
+- Raspberry Pi (all models, especially Pi Zero 2 W)
+- Debian-based Linux systems (Ubuntu, Raspbian, etc.)
+- Other Linux distributions with manual configuration
+
+## Hardware Requirements
+
+- Raspberry Pi Zero 2 W or similar (recommended)
+- MicroSD card (8GB+)
+- Power supply
+- (Optional) Ethernet adapter for wired diagnostics
+
+## Troubleshooting Installation
+
+If you encounter issues during installation, run the auto-fix script:
+
+```bash
+sudo bash /opt/netscout/scripts/autofix_v2.sh
+```
+
+For persistent problems, check the logs:
+
+```bash
+sudo journalctl -u netscout
+```
+
+## Manual Control
+
+Start the service:
+```bash
+sudo systemctl start netscout
+```
+
+Stop the service:
+```bash
+sudo systemctl stop netscout
+```
+
+Check service status:
+```bash
+sudo systemctl status netscout
+```
+
+## Uninstallation
+
+To completely remove NetScout-Pi:
+
+```bash
+sudo bash /opt/netscout/scripts/uninstall.sh
+```
 
 ## Step 4: Install NetProbe Pi
 
