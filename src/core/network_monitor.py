@@ -362,6 +362,88 @@ class NetworkMonitor:
                 except Exception as e:
                     self.logger.error(f"Error in event handler: {str(e)}")
     
+    def get_interface_status(self, interface=None):
+        """Get status of a network interface.
+        
+        Args:
+            interface (str, optional): Interface name. Defaults to monitored interface.
+            
+        Returns:
+            dict: Interface status.
+        """
+        interface = interface or self.interface
+        
+        status = {
+            'interface': interface,
+            'exists': interface in netifaces.interfaces(),
+            'up': False,
+            'carrier': False,
+            'addresses': {},
+            'error': None
+        }
+        
+        try:
+            # Check if interface exists and is up
+            if status['exists']:
+                # Get interface flags
+                with open(f'/sys/class/net/{interface}/flags', 'r') as f:
+                    flags = int(f.read().strip(), 16)
+                    status['up'] = bool(flags & 1)  # IFF_UP flag
+                
+                # Check carrier state
+                status['carrier'] = self._check_carrier(interface)
+                
+                # Get IP addresses
+                addresses = netifaces.ifaddresses(interface)
+                if netifaces.AF_INET in addresses:
+                    status['addresses']['ipv4'] = addresses[netifaces.AF_INET][0]
+                if netifaces.AF_INET6 in addresses:
+                    status['addresses']['ipv6'] = addresses[netifaces.AF_INET6][0]
+                
+                # Get MAC address
+                if netifaces.AF_LINK in addresses:
+                    status['addresses']['mac'] = addresses[netifaces.AF_LINK][0]['addr']
+                
+                # Get gateway
+                gateways = netifaces.gateways()
+                if 'default' in gateways and netifaces.AF_INET in gateways['default']:
+                    status['gateway'] = gateways['default'][netifaces.AF_INET][0]
+                
+                # Get DNS servers
+                try:
+                    with open('/etc/resolv.conf', 'r') as f:
+                        status['dns_servers'] = [l.split()[1] for l in f if l.startswith('nameserver')]
+                except:
+                    status['dns_servers'] = []
+                    
+        except Exception as e:
+            status['error'] = str(e)
+            self.logger.error(f"Error getting interface status: {e}")
+            
+        return status
+        
+    def get_recent_events(self, limit=100):
+        """Get recent network events.
+        
+        Args:
+            limit (int, optional): Maximum number of events to return.
+            
+        Returns:
+            list: List of recent events.
+        """
+        try:
+            events = []
+            log_file = os.path.join(self.log_dir, 'events.log')
+            
+            if os.path.exists(log_file):
+                with open(log_file, 'r') as f:
+                    events = [json.loads(line) for line in f.readlines()[-limit:]]
+                    
+            return events
+        except Exception as e:
+            self.logger.error(f"Error getting recent events: {e}")
+            return []
+    
     def _log_event(self, event):
         """Log a network event.
         
@@ -369,42 +451,45 @@ class NetworkMonitor:
             event (str): Event name.
         """
         try:
-            timestamp = datetime.datetime.now().isoformat()
             log_file = os.path.join(self.log_dir, 'events.log')
             
-            with open(log_file, 'a') as f:
-                f.write(f"{timestamp} {event}\n")
-                
-            # Also log as JSON for easier parsing
-            json_log = os.path.join(self.log_dir, 'events.json')
-            
-            # Read existing log if it exists
-            events = []
-            if os.path.exists(json_log):
-                try:
-                    with open(json_log, 'r') as f:
-                        events = json.load(f)
-                except Exception:
-                    # If file is corrupted, start fresh
-                    events = []
-            
-            # Add new event
-            events.append({
-                'timestamp': timestamp,
+            event_data = {
+                'timestamp': datetime.datetime.now().isoformat(),
                 'event': event,
-                'interface': self.interface
-            })
+                'interface': self.interface,
+                'status': self.get_interface_status()
+            }
             
-            # Limit number of events (keep last 1000)
-            if len(events) > 1000:
-                events = events[-1000:]
-                
-            # Write updated log
-            with open(json_log, 'w') as f:
-                json.dump(events, f, indent=2)
+            with open(log_file, 'a') as f:
+                f.write(json.dumps(event_data) + '\n')
                 
         except Exception as e:
-            self.logger.error(f"Error logging event: {str(e)}")
+            self.logger.error(f"Error logging event: {e}")
+    
+    def set_auto_run(self, enabled, plugins=None):
+        """Set auto-run settings.
+        
+        Args:
+            enabled (bool): Whether to auto-run plugins on connect.
+            plugins (list, optional): List of plugins to run. Defaults to current settings.
+            
+        Returns:
+            bool: True if settings were updated, False otherwise.
+        """
+        try:
+            self.auto_run = enabled
+            if plugins is not None:
+                self.default_plugins = plugins
+            
+            # Save to config
+            self.config.set('network.auto_run_on_connect', enabled)
+            if plugins is not None:
+                self.config.set('network.default_plugins', plugins)
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Error setting auto-run: {e}")
+            return False
     
     def _handle_ethernet_connect(self, event):
         """Handle Ethernet connect event.
@@ -428,112 +513,3 @@ class NetworkMonitor:
             event (str): Event name.
         """
         self.logger.info(f"Ethernet disconnected: {self.interface}")
-    
-    def get_interface_status(self, interface=None):
-        """Get status of a network interface.
-        
-        Args:
-            interface (str, optional): Interface name. Defaults to monitored interface.
-            
-        Returns:
-            dict: Interface status.
-        """
-        interface = interface or self.interface
-        
-        status = {
-            'interface': interface,
-            'exists': interface in netifaces.interfaces(),
-            'up': False,
-            'carrier': False,
-            'addresses': {},
-            'error': None
-        }
-        
-        try:
-            if not status['exists']:
-                status['error'] = f"Interface {interface} not found"
-                return status
-                
-            # Check if interface is up
-            with open(f"/sys/class/net/{interface}/operstate", 'r') as f:
-                state = f.read().strip()
-                status['up'] = state.lower() == 'up'
-                
-            # Check carrier
-            status['carrier'] = self._check_carrier(interface)
-            
-            # Get addresses
-            try:
-                addrs = netifaces.ifaddresses(interface)
-                
-                # IPv4
-                if netifaces.AF_INET in addrs:
-                    status['addresses']['ipv4'] = addrs[netifaces.AF_INET]
-                    
-                # IPv6
-                if netifaces.AF_INET6 in addrs:
-                    status['addresses']['ipv6'] = addrs[netifaces.AF_INET6]
-                    
-                # MAC
-                if netifaces.AF_LINK in addrs:
-                    status['addresses']['mac'] = addrs[netifaces.AF_LINK]
-            except Exception as e:
-                status['error'] = f"Error getting addresses: {str(e)}"
-                
-        except Exception as e:
-            status['error'] = str(e)
-            
-        return status
-    
-    def get_recent_events(self, limit=100):
-        """Get recent network events.
-        
-        Args:
-            limit (int, optional): Maximum number of events to return.
-            
-        Returns:
-            list: List of recent events.
-        """
-        try:
-            json_log = os.path.join(self.log_dir, 'events.json')
-            
-            if not os.path.exists(json_log):
-                return []
-                
-            with open(json_log, 'r') as f:
-                events = json.load(f)
-                
-            # Return last N events
-            return events[-limit:] if limit else events
-            
-        except Exception as e:
-            self.logger.error(f"Error getting recent events: {str(e)}")
-            return []
-    
-    def set_auto_run(self, enabled, plugins=None):
-        """Set auto-run settings.
-        
-        Args:
-            enabled (bool): Whether to auto-run plugins on connect.
-            plugins (list, optional): List of plugins to run. Defaults to current settings.
-            
-        Returns:
-            bool: True if settings were updated, False otherwise.
-        """
-        try:
-            self.auto_run = bool(enabled)
-            
-            if plugins is not None:
-                self.default_plugins = plugins
-                
-            # Update configuration
-            self.config.set('network.auto_run_on_connect', self.auto_run)
-            if plugins is not None:
-                self.config.set('network.default_plugins', self.default_plugins)
-                
-            self.logger.info(f"Auto-run settings updated: enabled={self.auto_run}, plugins={self.default_plugins}")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error updating auto-run settings: {str(e)}")
-            return False

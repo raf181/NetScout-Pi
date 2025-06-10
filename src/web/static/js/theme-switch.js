@@ -1,108 +1,106 @@
 /**
- * NetProbe Pi - Theme Switch
+ * NetProbe Pi - Theme Switch 2025
+ * Integrates with Tailwind Dark Mode and modern system preferences
  */
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Check for saved theme preference or respect OS preference
-    initTheme();
-    
-    // Add theme toggle to navbar if it doesn't exist yet
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize Alpine.js theme data
+    window.Alpine = window.Alpine || {};
+    window.Alpine.store('theme', {
+        isDark: false,
+        init() {
+            this.isDark = this.getThemePreference();
+            this.applyTheme();
+        },
+        toggle() {
+            this.isDark = !this.isDark;
+            this.applyTheme();
+            this.savePreference();
+        },
+        getThemePreference() {
+            // Check localStorage first
+            const stored = localStorage.getItem('theme');
+            if (stored) {
+                return stored === 'dark';
+            }
+            // Fall back to system preference
+            return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        },
+        applyTheme() {
+            // Update data-theme attribute for DaisyUI
+            document.documentElement.setAttribute('data-theme', this.isDark ? 'dark' : 'light');
+            // Update Tailwind dark mode class
+            document.documentElement.classList.toggle('dark', this.isDark);
+            // Update theme icons
+            this.updateThemeIcon();
+            // Dispatch event for other components
+            window.dispatchEvent(new CustomEvent('theme-changed', { 
+                detail: { theme: this.isDark ? 'dark' : 'light' } 
+            }));
+        },
+        savePreference() {
+            localStorage.setItem('theme', this.isDark ? 'dark' : 'light');
+        },
+        updateThemeIcon() {
+            const toggle = document.getElementById('theme-toggle');
+            if (toggle) {
+                const icon = toggle.querySelector('i');
+                if (icon) {
+                    icon.className = this.isDark ? 'fas fa-sun' : 'fas fa-moon';
+                }
+                // Update ARIA label
+                toggle.setAttribute('aria-label', 
+                    this.isDark ? 'Switch to light theme' : 'Switch to dark theme'
+                );
+            }
+        }
+    });
+
+    // Add theme toggle if not present
     addThemeToggle();
+
+    // Listen for OS theme changes
+    window.matchMedia('(prefers-color-scheme: dark)')
+        .addEventListener('change', e => {
+            if (!localStorage.getItem('theme')) {
+                Alpine.store('theme').isDark = e.matches;
+                Alpine.store('theme').applyTheme();
+            }
+        });
 });
 
 /**
- * Initialize theme based on user preference or system preference
- */
-function initTheme() {
-    // Check if user has a saved preference
-    const savedTheme = localStorage.getItem('theme');
-    
-    if (savedTheme) {
-        // Apply saved preference
-        document.body.classList.toggle('dark-theme', savedTheme === 'dark');
-        updateThemeIcon(savedTheme === 'dark');
-    } else {
-        // Check if user prefers dark mode at OS level
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        
-        if (prefersDark) {
-            document.body.classList.add('dark-theme');
-            updateThemeIcon(true);
-            localStorage.setItem('theme', 'dark');
-        } else {
-            document.body.classList.remove('dark-theme');
-            updateThemeIcon(false);
-            localStorage.setItem('theme', 'light');
-        }
-    }
-    
-    // Add transition class after initial load
-    setTimeout(() => {
-        document.body.classList.add('theme-transition');
-    }, 100);
-}
-
-/**
- * Add theme toggle button to navbar if not already present
+ * Add theme toggle button to navbar if not present
  */
 function addThemeToggle() {
-    // Check if navbar flex container exists
-    const navFlex = document.querySelector('.navbar .d-flex');
+    const navbarControls = document.querySelector('.navbar .navbar-controls');
+    if (!navbarControls || document.getElementById('theme-toggle')) return;
+
+    const toggle = document.createElement('button');
+    toggle.id = 'theme-toggle';
+    toggle.className = 'theme-toggle';
+    toggle.setAttribute('type', 'button');
+    toggle.setAttribute('x-data', '');
+    toggle.setAttribute('@click', '$store.theme.toggle()');
+    toggle.setAttribute('aria-label', 'Toggle theme');
     
-    if (navFlex && !document.getElementById('theme-toggle')) {
-        // Create theme toggle button
-        const themeToggle = document.createElement('button');
-        themeToggle.id = 'theme-toggle';
-        themeToggle.className = 'theme-toggle ms-2';
-        themeToggle.setAttribute('type', 'button');
-        themeToggle.setAttribute('aria-label', 'Toggle theme');
-        
-        // Set initial icon based on current theme
-        const isDark = document.body.classList.contains('dark-theme');
-        themeToggle.innerHTML = isDark ? 
-            '<i class="fas fa-sun"></i>' : 
-            '<i class="fas fa-moon"></i>';
-        
-        // Add click event listener
-        themeToggle.addEventListener('click', toggleTheme);
-        
-        // Insert before logout button if it exists, or append to flex container
-        const logoutButton = navFlex.querySelector('a.btn');
-        if (logoutButton) {
-            navFlex.insertBefore(themeToggle, logoutButton);
-        } else {
-            navFlex.appendChild(themeToggle);
+    // Initial icon state
+    const isDark = Alpine.store('theme').isDark;
+    toggle.innerHTML = `<i class="fas ${isDark ? 'fa-sun' : 'fa-moon'}"></i>`;
+    
+    // Find appropriate insert position
+    const logoutButton = navbarControls.querySelector('.btn-logout');
+    if (logoutButton) {
+        navbarControls.insertBefore(toggle, logoutButton);
+    } else {
+        navbarControls.appendChild(toggle);
+    }
+
+    // Add keyboard support
+    toggle.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            Alpine.store('theme').toggle();
         }
-    }
-}
-
-/**
- * Toggle between light and dark themes
- */
-function toggleTheme() {
-    // Toggle dark theme class
-    const isDark = document.body.classList.toggle('dark-theme');
-    
-    // Update toggle button icon
-    updateThemeIcon(isDark);
-    
-    // Save preference
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    
-    // Emit theme change event for components to react
-    window.dispatchEvent(new CustomEvent('themechange', {
-        detail: { theme: isDark ? 'dark' : 'light' }
-    }));
-}
-
-/**
- * Update theme toggle icon
- */
-function updateThemeIcon(isDark) {
-    const themeToggle = document.getElementById('theme-toggle');
-    if (themeToggle) {
-        themeToggle.innerHTML = isDark ? 
-            '<i class="fas fa-sun"></i>' : 
-            '<i class="fas fa-moon"></i>';
-    }
+    });
 }
