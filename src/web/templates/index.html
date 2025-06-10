@@ -42,25 +42,16 @@
             <div class="card-body">
                 <div class="list-group">
                     <button id="run-ping" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                        <div>
-                            <i class="fas fa-exchange-alt me-2"></i>Run Ping Test
-                            <small class="d-block text-muted">Test connectivity to gateway and internet</small>
-                        </div>
-                        <i class="fas fa-chevron-right"></i>
+                        <span><i class="fas fa-exchange-alt me-2"></i>Ping Test</span>
+                        <span class="badge bg-primary rounded-pill"><i class="fas fa-play"></i></span>
                     </button>
                     <button id="run-speed" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                        <div>
-                            <i class="fas fa-gauge-high me-2"></i>Speed Test
-                            <small class="d-block text-muted">Measure internet connection speed</small>
-                        </div>
-                        <i class="fas fa-chevron-right"></i>
+                        <span><i class="fas fa-tachometer-alt me-2"></i>Speed Test</span>
+                        <span class="badge bg-primary rounded-pill"><i class="fas fa-play"></i></span>
                     </button>
                     <button id="run-arp" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                        <div>
-                            <i class="fas fa-search me-2"></i>Scan Network
-                            <small class="d-block text-muted">Discover devices on your network</small>
-                        </div>
-                        <i class="fas fa-chevron-right"></i>
+                        <span><i class="fas fa-search me-2"></i>ARP Scan</span>
+                        <span class="badge bg-primary rounded-pill"><i class="fas fa-play"></i></span>
                     </button>
                 </div>
             </div>
@@ -85,7 +76,7 @@
                         <div class="spinner-border text-info" role="status">
                             <span class="visually-hidden">Loading...</span>
                         </div>
-                        <p class="mt-2">Loading recent results...</p>
+                        <p class="mt-2">Loading results...</p>
                     </div>
                 </div>
             </div>
@@ -109,7 +100,8 @@
             <div class="card-body">
                 <div id="network-chart" style="height: 300px;">
                     <div class="text-center py-5">
-                        <p>Network activity chart will appear here</p>
+                        <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Network activity chart will be displayed here.</p>
                     </div>
                 </div>
             </div>
@@ -120,7 +112,7 @@
         <div class="card">
             <div class="card-header bg-warning text-dark">
                 <h5 class="card-title mb-0">
-                    <i class="fas fa-bell me-2"></i>System Status
+                    <i class="fas fa-server me-2"></i>System Status
                 </h5>
             </div>
             <div class="card-body">
@@ -182,16 +174,27 @@
         $('#run-arp').click(() => runPlugin('arp_scan'));
 
         // Socket.IO event handlers
+        socket.on('connect', function() {
+            console.log('Socket.IO connected');
+        });
+        
+        socket.on('disconnect', function() {
+            console.log('Socket.IO disconnected');
+        });
+        
         socket.on('plugin_result', function(data) {
+            console.log('Plugin result received:', data);
             displayPluginResult(data);
             loadRecentResults();
         });
 
         socket.on('plugin_progress', function(data) {
+            console.log('Plugin progress:', data);
             updatePluginProgress(data);
         });
 
         socket.on('network_event', function(data) {
+            console.log('Network event:', data);
             if (data.event === 'eth_connect') {
                 $('#network-status').html('<i class="fas fa-circle text-success me-1"></i> Connected');
                 loadNetworkInfo();
@@ -199,6 +202,19 @@
                 $('#network-status').html('<i class="fas fa-circle text-danger me-1"></i> Disconnected');
                 loadNetworkInfo();
             }
+        });
+        
+        // Global listener for all plugin results
+        const pluginNames = ['ip_info', 'ping_test', 'arp_scan', 'speed_test', 'port_scan', 'traceroute', 'vlan_detector'];
+        pluginNames.forEach(pluginName => {
+            socket.on(`plugin_result_${pluginName}`, function(result) {
+                console.log(`${pluginName} result received:`, result);
+                displayPluginResult({
+                    plugin_name: pluginName,
+                    result: result
+                });
+                loadRecentResults();
+            });
         });
 
         // Functions
@@ -224,76 +240,87 @@
                     const statusText = ifData.carrier ? 'Connected' : 'Disconnected';
                     
                     html += `
-                        <h6 class="border-bottom pb-2">Primary Interface (${primaryInterface})</h6>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Status:</span>
-                            <span class="text-${statusColor}"><i class="fas fa-circle me-1"></i>${statusText}</span>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">Interface ${primaryInterface}</h6>
+                            <span class="badge bg-${statusColor}">${statusText}</span>
                         </div>
                     `;
-
-                    if (ifData.addresses && ifData.addresses.ipv4 && ifData.addresses.ipv4.length > 0) {
-                        const ipv4 = ifData.addresses.ipv4[0];
+                    
+                    if (ifData.addresses && ifData.addresses.ipv4) {
                         html += `
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>IP Address:</span>
-                                <span>${ipv4.addr}</span>
+                            <div class="mb-2">
+                                <small class="text-muted d-block">IPv4 Address</small>
+                                <strong>${ifData.addresses.ipv4.addr || 'Not available'}</strong>
                             </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Netmask:</span>
-                                <span>${ipv4.netmask}</span>
+                            <div class="mb-2">
+                                <small class="text-muted d-block">Subnet Mask</small>
+                                <strong>${ifData.addresses.ipv4.netmask || 'Not available'}</strong>
                             </div>
                         `;
-                    } else {
-                        html += `<p class="text-muted">No IP address assigned</p>`;
+                    }
+                    
+                    if (ifData.addresses && ifData.addresses.mac) {
+                        html += `
+                            <div class="mb-2">
+                                <small class="text-muted d-block">MAC Address</small>
+                                <strong>${ifData.addresses.mac || 'Not available'}</strong>
+                            </div>
+                        `;
                     }
                 } else {
-                    html += `<p class="text-danger">Interface ${primaryInterface} not found</p>`;
+                    html += `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            No information available for ${primaryInterface}
+                        </div>
+                    `;
                 }
 
                 // Show Wi-Fi interface info if available
                 const wifiInterface = data.wifi_interface || 'wlan0';
-                if (data[wifiInterface]) {
-                    const wifi = data[wifiInterface];
-                    const wifiUp = wifi.up || wifi.carrier;
+                if (data[wifiInterface] && wifiInterface !== primaryInterface) {
+                    const wifiData = data[wifiInterface];
+                    const wifiStatusColor = wifiData.carrier ? 'success' : 'danger';
+                    const wifiStatusText = wifiData.carrier ? 'Connected' : 'Disconnected';
                     
                     html += `
-                        <h6 class="border-bottom pb-2 mt-3">WiFi (${wifiInterface})</h6>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Status:</span>
-                            <span class="text-${wifiUp ? 'success' : 'danger'}">
-                                <i class="fas fa-circle me-1"></i>${wifiUp ? 'Up' : 'Down'}
-                            </span>
+                        <hr>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">WiFi (${wifiInterface})</h6>
+                            <span class="badge bg-${wifiStatusColor}">${wifiStatusText}</span>
                         </div>
                     `;
-
-                    if (wifi.addresses && wifi.addresses.ipv4 && wifi.addresses.ipv4.length > 0) {
-                        const ipv4 = wifi.addresses.ipv4[0];
+                    
+                    if (wifiData.addresses && wifiData.addresses.ipv4) {
                         html += `
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>IP Address:</span>
-                                <span>${ipv4.addr}</span>
+                            <div class="mb-2">
+                                <small class="text-muted d-block">IPv4 Address</small>
+                                <strong>${wifiData.addresses.ipv4.addr || 'Not available'}</strong>
                             </div>
                         `;
                     }
                 }
                 
                 // Add internet status
-                html += `
-                    <h6 class="border-bottom pb-2 mt-3">Internet</h6>
-                    <div class="d-flex justify-content-between mb-2">
-                        <span>Status:</span>
-                        <span class="text-${data.internet_status === 'connected' ? 'success' : 'danger'}">
-                            <i class="fas fa-circle me-1"></i>${data.internet_status === 'connected' ? 'Connected' : 'Disconnected'}
-                        </span>
-                    </div>
-                `;
+                if (data.internet_status) {
+                    const internetStatusColor = data.internet_status === 'connected' ? 'success' : 'danger';
+                    const internetStatusText = data.internet_status === 'connected' ? 'Connected' : 'Disconnected';
+                    
+                    html += `
+                        <hr>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">Internet</h6>
+                            <span class="badge bg-${internetStatusColor}">${internetStatusText}</span>
+                        </div>
+                    `;
+                }
                 
                 // Add DNS servers if available
                 if (data.dns_servers && data.dns_servers.length > 0) {
                     html += `
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>DNS Servers:</span>
-                            <span>${data.dns_servers.join(', ')}</span>
+                        <div class="mb-2">
+                            <small class="text-muted d-block">DNS Servers</small>
+                            <strong>${data.dns_servers.join(', ')}</strong>
                         </div>
                     `;
                 }
@@ -301,20 +328,24 @@
                 // Add gateway if available
                 if (data.default_gateway) {
                     html += `
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Default Gateway:</span>
-                            <span>${data.default_gateway}</span>
+                        <div class="mb-2">
+                            <small class="text-muted d-block">Default Gateway</small>
+                            <strong>${data.default_gateway}</strong>
                         </div>
                     `;
                 }
 
                 $('#network-info').html(html);
-            }).fail(function() {
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                console.error("Error loading network info:", textStatus, errorThrown);
                 $('#network-info').html(`
                     <div class="alert alert-danger">
-                        Failed to load network information
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Failed to load network information. 
+                        <button id="retry-network" class="btn btn-sm btn-danger mt-2">Retry</button>
                     </div>
                 `);
+                $('#retry-network').click(loadNetworkInfo);
             });
         }
 
@@ -324,14 +355,17 @@
                     <div class="spinner-border text-info" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
-                    <p class="mt-2">Loading recent results...</p>
+                    <p class="mt-2">Loading results...</p>
                 </div>
             `);
 
             $.getJSON('/api/results/recent', function(data) {
-                if (data.length === 0) {
+                if (!data || data.length === 0) {
                     $('#recent-results').html(`
-                        <p class="text-muted">No recent results found</p>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            No recent results found. Run a plugin to see results here.
+                        </div>
                     `);
                     return;
                 }
@@ -339,37 +373,42 @@
                 let html = '<div class="list-group">';
                 
                 data.forEach(result => {
-                    const timestamp = new Date(result.timestamp).toLocaleString();
-                    const pluginName = result.plugin?.name || 'Unknown';
+                    const time = new Date(result.timestamp).toLocaleTimeString();
+                    const pluginName = result.plugin_name || result.plugin?.name || 'Unknown';
                     
+                    // Determine status icon
                     let statusIcon = '';
                     if (result.error) {
-                        statusIcon = '<i class="fas fa-exclamation-circle text-danger"></i>';
+                        statusIcon = '<i class="fas fa-exclamation-circle text-danger me-2"></i>';
                     } else if (result.success === false) {
-                        statusIcon = '<i class="fas fa-times-circle text-warning"></i>';
+                        statusIcon = '<i class="fas fa-times-circle text-warning me-2"></i>';
                     } else {
-                        statusIcon = '<i class="fas fa-check-circle text-success"></i>';
+                        statusIcon = '<i class="fas fa-check-circle text-success me-2"></i>';
                     }
                     
                     html += `
                         <a href="/results/${result.run_id}" class="list-group-item list-group-item-action">
                             <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">${pluginName} ${statusIcon}</h6>
-                                <small>${timestamp}</small>
+                                <h6 class="mb-1">${statusIcon}${pluginName}</h6>
+                                <small>${time}</small>
                             </div>
-                            <small class="text-muted">Run ID: ${result.run_id}</small>
+                            <p class="mb-1">${result.summary || 'No summary available'}</p>
                         </a>
                     `;
                 });
                 
                 html += '</div>';
                 $('#recent-results').html(html);
-            }).fail(function() {
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                console.error("Error loading recent results:", textStatus, errorThrown);
                 $('#recent-results').html(`
                     <div class="alert alert-danger">
-                        Failed to load recent results
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Failed to load recent results.
+                        <button id="retry-results" class="btn btn-sm btn-danger mt-2">Retry</button>
                     </div>
                 `);
+                $('#retry-results').click(loadRecentResults);
             });
         }
 
@@ -392,13 +431,12 @@
                 html += `
                     <div class="mb-3">
                         <div class="d-flex justify-content-between mb-1">
-                            <span>CPU Usage:</span>
-                            <span class="text-${cpuUsageClass}">${data.cpu_percent.toFixed(1)}%</span>
+                            <span>CPU Usage</span>
+                            <span class="text-${cpuUsageClass}" id="cpu-usage">${data.cpu_percent.toFixed(1)}%</span>
                         </div>
-                        <div class="progress">
-                            <div class="progress-bar bg-${cpuUsageClass}" role="progressbar" 
-                                style="width: ${data.cpu_percent}%" aria-valuenow="${data.cpu_percent}" 
-                                aria-valuemin="0" aria-valuemax="100"></div>
+                        <div class="progress" style="height: 8px;">
+                            <div id="cpu-progress" class="progress-bar bg-${cpuUsageClass}" role="progressbar" 
+                                style="width: ${data.cpu_percent}%;" aria-valuenow="${data.cpu_percent}" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
                     </div>
                 `;
@@ -409,13 +447,12 @@
                 html += `
                     <div class="mb-3">
                         <div class="d-flex justify-content-between mb-1">
-                            <span>Memory Usage:</span>
-                            <span class="text-${memoryUsageClass}">${data.memory_percent.toFixed(1)}%</span>
+                            <span>Memory Usage</span>
+                            <span class="text-${memoryUsageClass}" id="memory-usage">${data.memory_percent.toFixed(1)}%</span>
                         </div>
-                        <div class="progress">
-                            <div class="progress-bar bg-${memoryUsageClass}" role="progressbar" 
-                                style="width: ${data.memory_percent}%" aria-valuenow="${data.memory_percent}" 
-                                aria-valuemin="0" aria-valuemax="100"></div>
+                        <div class="progress" style="height: 8px;">
+                            <div id="memory-progress" class="progress-bar bg-${memoryUsageClass}" role="progressbar" 
+                                style="width: ${data.memory_percent}%;" aria-valuenow="${data.memory_percent}" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
                     </div>
                 `;
@@ -426,26 +463,25 @@
                 html += `
                     <div class="mb-3">
                         <div class="d-flex justify-content-between mb-1">
-                            <span>Disk Usage:</span>
-                            <span class="text-${diskUsageClass}">${data.disk_percent.toFixed(1)}%</span>
+                            <span>Disk Usage</span>
+                            <span class="text-${diskUsageClass}" id="disk-usage">${data.disk_percent.toFixed(1)}%</span>
                         </div>
-                        <div class="progress">
-                            <div class="progress-bar bg-${diskUsageClass}" role="progressbar" 
-                                style="width: ${data.disk_percent}%" aria-valuenow="${data.disk_percent}" 
-                                aria-valuemin="0" aria-valuemax="100"></div>
+                        <div class="progress" style="height: 8px;">
+                            <div id="disk-progress" class="progress-bar bg-${diskUsageClass}" role="progressbar" 
+                                style="width: ${data.disk_percent}%;" aria-valuenow="${data.disk_percent}" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
                     </div>
                 `;
 
                 // Temperature
                 if (data.temperature) {
-                    const tempClass = data.temperature < 60 ? 'success' : 
-                                   data.temperature < 80 ? 'warning' : 'danger';
+                    const tempClass = data.temperature < 65 ? 'success' : 
+                                    data.temperature < 75 ? 'warning' : 'danger';
                     html += `
                         <div class="mb-3">
-                            <div class="d-flex justify-content-between mb-1">
-                                <span>Temperature:</span>
-                                <span class="text-${tempClass}">${data.temperature.toFixed(1)}°C</span>
+                            <div class="d-flex justify-content-between">
+                                <span>Temperature</span>
+                                <span class="text-${tempClass}" id="temperature">${data.temperature.toFixed(1)}°C</span>
                             </div>
                         </div>
                     `;
@@ -453,21 +489,25 @@
 
                 // Uptime
                 html += `
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span>Uptime:</span>
+                    <div class="mb-1">
+                        <div class="d-flex justify-content-between">
+                            <span>Uptime</span>
                             <span>${formatUptime(data.uptime)}</span>
                         </div>
                     </div>
                 `;
                 
                 $('#system-status').html(html);
-            }).fail(function() {
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                console.error("Error loading system status:", textStatus, errorThrown);
                 $('#system-status').html(`
                     <div class="alert alert-danger">
-                        Failed to load system status
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Failed to load system status.
+                        <button id="retry-system" class="btn btn-sm btn-danger mt-2">Retry</button>
                     </div>
                 `);
+                $('#retry-system').click(loadSystemStatus);
             });
         }
 
@@ -486,7 +526,6 @@
                         <div id="plugin-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
                             role="progressbar" style="width: 0%" aria-valuenow="0" 
                             aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
                 </div>
             `);
 
@@ -494,13 +533,30 @@
             $.ajax({
                 url: `/api/plugin/${pluginName}/run`,
                 type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({}),  // No parameters for now
                 success: function(data) {
-                    // The socket.io event will handle the result
+                    // Wait for Socket.IO to deliver the result
+                    console.log(`Plugin ${pluginName} is running...`);
+                    
+                    // Listen for the specific plugin result event
+                    socket.on(`plugin_result_${pluginName}`, function(result) {
+                        displayPluginResult({
+                            plugin_name: pluginName,
+                            result: result
+                        });
+                        
+                        // Refresh data after plugin completes
+                        loadNetworkInfo();
+                        loadRecentResults();
+                    });
                 },
-                error: function() {
+                error: function(jqXHR, textStatus, errorThrown) {
                     $('#result-content').html(`
                         <div class="alert alert-danger">
-                            Failed to run plugin
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Error running plugin: ${textStatus}
+                            <p class="small mt-1 mb-0">${errorThrown}</p>
                         </div>
                     `);
                 }
@@ -511,36 +567,55 @@
             if (!data || !data.result) {
                 $('#result-content').html(`
                     <div class="alert alert-danger">
-                        No result data received
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        No result data available.
                     </div>
                 `);
                 return;
             }
 
+            const pluginName = data.plugin_name || 'Unknown';
             const result = data.result;
             let html = '';
+            
+            // Set modal title
+            $('.modal-title').text(`${pluginName} Result`);
             
             // Display error if any
             if (result.error) {
                 html += `
                     <div class="alert alert-danger">
-                        <strong>Error:</strong> ${result.error}
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        ${result.error}
                     </div>
                 `;
             }
 
             // Format result based on plugin type
-            if (data.plugin_name === 'ip_info') {
+            if (pluginName === 'ip_info') {
                 html += formatIpInfoResult(result);
-            } else if (data.plugin_name === 'ping_test') {
+            } else if (pluginName === 'ping_test') {
                 html += formatPingTestResult(result);
-            } else if (data.plugin_name === 'arp_scan') {
+            } else if (pluginName === 'arp_scan') {
                 html += formatArpScanResult(result);
-            } else if (data.plugin_name === 'speed_test') {
+            } else if (pluginName === 'speed_test') {
                 html += formatSpeedTestResult(result);
+            } else if (pluginName === 'port_scan') {
+                html += formatPortScanResult(result);
+            } else if (pluginName === 'traceroute') {
+                html += formatTracerouteResult(result);
             } else {
                 // Generic JSON display
-                html += `<pre class="bg-light p-3 rounded">${JSON.stringify(result, null, 2)}</pre>`;
+                html += `
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">Raw Result Data</h6>
+                        </div>
+                        <div class="card-body">
+                            <pre class="bg-light p-3 rounded mb-0" style="max-height: 400px; overflow-y: auto;">${JSON.stringify(result, null, 2)}</pre>
+                        </div>
+                    </div>
+                `;
             }
 
             $('#result-content').html(html);
@@ -552,49 +627,54 @@
             if (result.status === 'down') {
                 html += `
                     <div class="alert alert-warning">
-                        Interface ${result.interface} is down
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Interface ${result.interface || 'Unknown'} is down
                     </div>
                 `;
                 return html;
             }
 
             html += `
-                <h5>IP Information for ${result.interface}</h5>
+                <h5>IP Information for ${result.interface || 'Unknown Interface'}</h5>
                 <div class="table-responsive">
                     <table class="table table-bordered">
-                        <tr>
-                            <th>Status</th>
-                            <td>
-                                <span class="badge bg-${result.status === 'up' ? 'success' : 'danger'}">
-                                    ${result.status}
-                                </span>
-                            </td>
-                        </tr>
-            `;
-
+                        <tbody>`;
+            
+            // IP Addresses
             if (result.addresses && result.addresses.ipv4) {
                 const ipv4 = result.addresses.ipv4;
                 html += `
                     <tr>
                         <th>IPv4 Address</th>
-                        <td>${ipv4.address}</td>
+                        <td>${ipv4.addr || 'N/A'}</td>
                     </tr>
                     <tr>
-                        <th>Netmask</th>
-                        <td>${ipv4.netmask}</td>
+                        <th>Subnet Mask</th>
+                        <td>${ipv4.netmask || 'N/A'}</td>
                     </tr>
                     <tr>
-                        <th>CIDR</th>
-                        <td>${ipv4.cidr || 'N/A'}</td>
-                    </tr>
-                `;
+                        <th>Broadcast</th>
+                        <td>${ipv4.broadcast || 'N/A'}</td>
+                    </tr>`;
             }
-
+            
+            // MAC Address
+            if (result.addresses && result.addresses.mac) {
+                html += `
+                    <tr>
+                        <th>MAC Address</th>
+                        <td>${result.addresses.mac}</td>
+                    </tr>`;
+            } else {
+                html += `
+                    <tr>
+                        <th>MAC Address</th>
+                        <td>${result.mac_address || 'N/A'}</td>
+                    </tr>`;
+            }
+            
+            // Gateway
             html += `
-                <tr>
-                    <th>MAC Address</th>
-                    <td>${result.mac_address || 'N/A'}</td>
-                </tr>
                 <tr>
                     <th>Gateway</th>
                     <td>${result.gateway || 'N/A'}</td>
@@ -602,216 +682,347 @@
                 <tr>
                     <th>Hostname</th>
                     <td>${result.hostname || 'N/A'}</td>
-                </tr>
-            `;
-
+                </tr>`;
+            
+            // DNS Servers
             if (result.dns_servers && result.dns_servers.length > 0) {
                 html += `
                     <tr>
                         <th>DNS Servers</th>
                         <td>${result.dns_servers.join('<br>')}</td>
-                    </tr>
-                `;
+                    </tr>`;
             }
-
+            
             html += `
+                        </tbody>
                     </table>
-                </div>
-            `;
-
+                </div>`;
+            
             return html;
         }
-
+        
         function formatPingTestResult(result) {
             let html = '';
             
             if (result.error) {
                 html += `
                     <div class="alert alert-danger">
-                        <strong>Error:</strong> ${result.error}
-                    </div>
-                `;
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        ${result.error}
+                    </div>`;
                 return html;
             }
 
             html += `
                 <h5>Ping Test Results</h5>
-                <p class="text-muted">Interface: ${result.interface}</p>
+                <p class="text-muted">Interface: ${result.interface || 'N/A'}</p>`;
                 
-                <div class="alert alert-${result.status === 'excellent' ? 'success' : 
-                                        result.status === 'good' ? 'primary' : 
-                                        result.status === 'poor' ? 'warning' : 'danger'}">
-                    Connectivity Status: <strong>${result.status}</strong>
-                    <div class="mt-1">Success Rate: ${result.success_rate.toFixed(1)}%</div>
-                </div>
+            if (result.status) {
+                const statusClass = result.status === 'excellent' ? 'success' : 
+                                    result.status === 'good' ? 'primary' : 
+                                    result.status === 'fair' ? 'warning' : 'danger';
                 
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Target</th>
-                                <th>Status</th>
-                                <th>Avg Time</th>
-                                <th>Packet Loss</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-
-            result.results.forEach(ping => {
                 html += `
-                    <tr>
-                        <td>${ping.target}</td>
-                        <td>
-                            <span class="badge bg-${ping.success ? 'success' : 'danger'}">
-                                ${ping.success ? 'Success' : 'Failed'}
-                            </span>
-                        </td>
-                        <td>${ping.stats.avg ? ping.stats.avg.toFixed(2) + ' ms' : 'N/A'}</td>
-                        <td>${ping.packet_loss.toFixed(1)}%</td>
-                    </tr>
-                `;
-            });
-
-            html += `
-                        </tbody>
-                    </table>
-                </div>
-            `;
-
+                    <div class="alert alert-${statusClass}">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Connection Quality: <strong>${result.status.toUpperCase()}</strong>
+                    </div>`;
+            }
+            
+            if (result.results && result.results.length > 0) {
+                html += `
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Host</th>
+                                    <th>Status</th>
+                                    <th>Min (ms)</th>
+                                    <th>Avg (ms)</th>
+                                    <th>Max (ms)</th>
+                                    <th>Packet Loss</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+                
+                result.results.forEach(ping => {
+                    const statusClass = ping.success ? 'success' : 'danger';
+                    const statusIcon = ping.success ? 
+                        '<i class="fas fa-check-circle text-success"></i>' : 
+                        '<i class="fas fa-times-circle text-danger"></i>';
+                    
+                    html += `
+                        <tr>
+                            <td>${ping.host}</td>
+                            <td>${statusIcon}</td>
+                            <td>${ping.min !== undefined ? ping.min.toFixed(2) : 'N/A'}</td>
+                            <td>${ping.avg !== undefined ? ping.avg.toFixed(2) : 'N/A'}</td>
+                            <td>${ping.max !== undefined ? ping.max.toFixed(2) : 'N/A'}</td>
+                            <td>${ping.packet_loss !== undefined ? ping.packet_loss + '%' : 'N/A'}</td>
+                        </tr>`;
+                });
+                
+                html += `
+                            </tbody>
+                        </table>
+                    </div>`;
+            } else {
+                html += `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        No ping results available
+                    </div>`;
+            }
+            
             return html;
         }
-
+        
         function formatArpScanResult(result) {
             let html = '';
             
             if (result.error) {
                 html += `
                     <div class="alert alert-danger">
-                        <strong>Error:</strong> ${result.error}
-                    </div>
-                `;
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        ${result.error}
+                    </div>`;
                 return html;
             }
 
             html += `
                 <h5>ARP Scan Results</h5>
-                <p class="text-muted">Interface: ${result.interface}, Subnet: ${result.subnet || 'N/A'}</p>
-                <p>Found ${result.devices.length} devices on the network</p>
-                
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>IP Address</th>
-                                <th>MAC Address</th>
-                                <th>Hostname</th>
-                                <th>Vendor</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-
-            result.devices.forEach(device => {
+                <p class="text-muted">Interface: ${result.interface || 'N/A'}, Subnet: ${result.subnet || 'N/A'}</p>`;
+            
+            if (result.devices && result.devices.length > 0) {
                 html += `
-                    <tr>
-                        <td>${device.ip}</td>
-                        <td>${device.mac}</td>
-                        <td>${device.hostname || 'N/A'}</td>
-                        <td>${device.vendor || 'Unknown'}</td>
-                    </tr>
-                `;
-            });
-
-            html += `
-                        </tbody>
-                    </table>
-                </div>
-            `;
-
+                    <p>Found ${result.devices.length} devices on the network</p>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>IP Address</th>
+                                    <th>MAC Address</th>
+                                    <th>Vendor</th>
+                                    <th>Hostname</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+                
+                result.devices.forEach(device => {
+                    html += `
+                        <tr>
+                            <td>${device.ip || 'N/A'}</td>
+                            <td>${device.mac || 'N/A'}</td>
+                            <td>${device.vendor || 'Unknown'}</td>
+                            <td>${device.hostname || 'Unknown'}</td>
+                        </tr>`;
+                });
+                
+                html += `
+                            </tbody>
+                        </table>
+                    </div>`;
+            } else {
+                html += `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        No devices found on the network
+                    </div>`;
+            }
+            
             return html;
         }
-
+        
         function formatSpeedTestResult(result) {
             let html = '';
             
             if (result.error) {
                 html += `
                     <div class="alert alert-danger">
-                        <strong>Error:</strong> ${result.error}
-                    </div>
-                `;
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        ${result.error}
+                    </div>`;
                 return html;
             }
 
             html += `
-                <h5>Speed Test Results</h5>
-                
-                <div class="row text-center mb-4">
-                    <div class="col-md-4">
-                        <div class="card">
-                            <div class="card-body">
-                                <h3 class="text-primary">${result.average.download.toFixed(2)}</h3>
-                                <p class="mb-0">Download (Mbps)</p>
+                <h5>Speed Test Results</h5>`;
+            
+            if (result.download !== undefined && result.upload !== undefined) {
+                html += `
+                    <div class="row text-center mb-4">
+                        <div class="col-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">Download</h6>
+                                    <p class="display-6">${(result.download / 1000000).toFixed(2)}</p>
+                                    <p class="text-muted">Mbps</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card">
-                            <div class="card-body">
-                                <h3 class="text-success">${result.average.upload.toFixed(2)}</h3>
-                                <p class="mb-0">Upload (Mbps)</p>
+                        <div class="col-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">Upload</h6>
+                                    <p class="display-6">${(result.upload / 1000000).toFixed(2)}</p>
+                                    <p class="text-muted">Mbps</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card">
-                            <div class="card-body">
-                                <h3 class="text-info">${result.average.ping.toFixed(2)}</h3>
-                                <p class="mb-0">Ping (ms)</p>
-                            </div>
+                    </div>`;
+            }
+            
+            if (result.ping !== undefined) {
+                html += `
+                    <div class="card mb-3">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">Ping</h6>
+                            <p class="h3">${result.ping.toFixed(2)} ms</p>
                         </div>
-                    </div>
-                </div>
-            `;
-
+                    </div>`;
+            }
+            
             if (result.server_info) {
                 html += `
                     <div class="card mb-3">
                         <div class="card-header">Server Information</div>
                         <div class="card-body">
-                            <p><strong>Server:</strong> ${result.server_info.name}</p>
-                            <p><strong>Location:</strong> ${result.server_info.location}, ${result.server_info.country}</p>
-                            <p><strong>Host:</strong> ${result.server_info.host}</p>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Name:</span>
+                                    <span>${result.server_info.name || 'N/A'}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Location:</span>
+                                    <span>${result.server_info.location || 'N/A'}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Host:</span>
+                                    <span>${result.server_info.host || 'N/A'}</span>
+                                </li>
+                            </ul>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             }
-
-            if (result.client_info) {
-                html += `
-                    <div class="card">
-                        <div class="card-header">Client Information</div>
-                        <div class="card-body">
-                            <p><strong>IP:</strong> ${result.client_info.ip}</p>
-                            <p><strong>ISP:</strong> ${result.client_info.isp}</p>
-                            <p><strong>Location:</strong> ${result.client_info.location}</p>
-                        </div>
-                    </div>
-                `;
-            }
-
+            
             return html;
         }
-
-        function updatePluginProgress(data) {
-            $('#plugin-progress-bar').css('width', `${data.progress}%`).attr('aria-valuenow', data.progress);
+        
+        function formatPortScanResult(result) {
+            let html = '';
             
-            if (data.status === 'error') {
-                $('#plugin-progress-bar').removeClass('progress-bar-animated').addClass('bg-danger');
+            if (result.error) {
+                html += `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        ${result.error}
+                    </div>`;
+                return html;
             }
-        }
 
+            html += `
+                <h5>Port Scan Results</h5>
+                <p class="text-muted">Target: ${result.target || 'N/A'}</p>`;
+            
+            if (result.open_ports && result.open_ports.length > 0) {
+                html += `
+                    <p>Found ${result.open_ports.length} open ports</p>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Port</th>
+                                    <th>Protocol</th>
+                                    <th>Service</th>
+                                    <th>State</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+                
+                result.open_ports.forEach(port => {
+                    html += `
+                        <tr>
+                            <td>${port.port || 'N/A'}</td>
+                            <td>${port.protocol || 'tcp'}</td>
+                            <td>${port.service || 'Unknown'}</td>
+                            <td><span class="badge bg-success">Open</span></td>
+                        </tr>`;
+                });
+                
+                html += `
+                            </tbody>
+                        </table>
+                    </div>`;
+            } else {
+                html += `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        No open ports found
+                    </div>`;
+            }
+            
+            return html;
+        }
+        
+        function formatTracerouteResult(result) {
+            let html = '';
+            
+            if (result.error) {
+                html += `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        ${result.error}
+                    </div>`;
+                return html;
+            }
+
+            html += `
+                <h5>Traceroute Results</h5>
+                <p class="text-muted">Target: ${result.target || 'N/A'}</p>`;
+            
+            if (result.hops && result.hops.length > 0) {
+                html += `
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Hop</th>
+                                    <th>Host</th>
+                                    <th>IP</th>
+                                    <th>RTT (ms)</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+                
+                result.hops.forEach((hop, index) => {
+                    const rtt = hop.rtt ? hop.rtt.toFixed(2) : 'N/A';
+                    
+                    html += `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td>${hop.host || 'Unknown'}</td>
+                            <td>${hop.ip || '*'}</td>
+                            <td>${rtt}</td>
+                        </tr>`;
+                });
+                
+                html += `
+                            </tbody>
+                        </table>
+                    </div>`;
+            } else {
+                html += `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        No traceroute hops found
+                    </div>`;
+            }
+            
+            return html;
+        }
+        
         function formatUptime(seconds) {
             const days = Math.floor(seconds / (24 * 60 * 60));
             seconds %= (24 * 60 * 60);
@@ -825,6 +1036,21 @@
             if (minutes > 0) result += `${minutes}m`;
             
             return result || '< 1m';
+        }
+        
+        function updatePluginProgress(data) {
+            if (!data || !data.progress) return;
+            
+            const progress = parseInt(data.progress);
+            $('#plugin-progress-bar')
+                .css('width', `${progress}%`)
+                .attr('aria-valuenow', progress);
+            
+            if (data.status === 'error') {
+                $('#plugin-progress-bar')
+                    .removeClass('progress-bar-animated')
+                    .addClass('bg-danger');
+            }
         }
     });
 </script>

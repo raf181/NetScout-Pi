@@ -988,6 +988,64 @@ def create_app(config, plugin_manager, network_monitor):
     def api_result_detail(run_id):
         """Get details for a specific result."""
         try:
+            # Handle sample data for testing
+            if run_id.startswith('sample-'):
+                if run_id == 'sample-1':
+                    return jsonify({
+                        "run_id": "sample-1",
+                        "plugin_name": "ip_info",
+                        "timestamp": datetime.datetime.now().isoformat(),
+                        "success": True,
+                        "duration": 0.5,
+                        "interface": "eth0",
+                        "result": {
+                            "interface": "eth0",
+                            "status": "up",
+                            "addresses": {
+                                "ipv4": {
+                                    "addr": "192.168.1.100",
+                                    "netmask": "255.255.255.0",
+                                    "broadcast": "192.168.1.255"
+                                },
+                                "mac": "00:11:22:33:44:55"
+                            },
+                            "gateway": "192.168.1.1",
+                            "hostname": "netscout-pi",
+                            "dns_servers": ["8.8.8.8", "8.8.4.4"]
+                        }
+                    })
+                elif run_id == 'sample-2':
+                    return jsonify({
+                        "run_id": "sample-2",
+                        "plugin_name": "ping_test",
+                        "timestamp": (datetime.datetime.now() - datetime.timedelta(minutes=30)).isoformat(),
+                        "success": True,
+                        "duration": 2.3,
+                        "interface": "eth0",
+                        "result": {
+                            "interface": "eth0",
+                            "status": "excellent",
+                            "results": [
+                                {
+                                    "host": "192.168.1.1",
+                                    "success": True,
+                                    "min": 0.5,
+                                    "avg": 0.8,
+                                    "max": 1.2,
+                                    "packet_loss": 0
+                                },
+                                {
+                                    "host": "8.8.8.8",
+                                    "success": True,
+                                    "min": 15.3,
+                                    "avg": 16.7,
+                                    "max": 18.2,
+                                    "packet_loss": 0
+                                }
+                            ]
+                        }
+                    })
+            
             # Search for the result across all plugins
             for plugin_name in plugin_manager.get_plugin_names():
                 plugin = plugin_manager.get_plugin(plugin_name)
@@ -996,9 +1054,9 @@ def create_app(config, plugin_manager, network_monitor):
                 
                 result = plugin.logger.get_run(run_id)
                 if result:
-                    result['plugin_name'] = plugin_name
                     return jsonify(result)
             
+            # No result found
             return jsonify({"error": "Result not found"}), 404
         except Exception as e:
             logger.error(f"Error getting result detail: {e}")
