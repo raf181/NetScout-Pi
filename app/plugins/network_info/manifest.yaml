@@ -1,0 +1,21 @@
+name: Network Information
+id: network_info
+version: 1.0.0
+description: Retrieves detailed information about the current network connection including DNS, DHCP, VLAN, and other network configuration details
+author: NetScout Team
+homepage: https://github.com/netscout/network-info
+main_module: main
+parameters:
+  - name: interface
+    label: Network Interface
+    type: string
+    description: The network interface to check (leave blank for auto-detection)
+    default: ""
+    required: false
+  - name: deep_scan
+    label: Deep Scan
+    type: boolean
+    description: Perform a more comprehensive scan of network settings
+    default: false
+    required: false
+ui_path: ui.html
