@@ -179,7 +179,8 @@ def handle_execute_plugin(data):
                 logger.error(f"Plugin manager not available")
                 socketio.emit('plugin_error', {
                     'plugin_id': plugin_id,
-                    'error': 'Plugin manager not available'
+                    'error': 'Plugin manager not available',
+                    'timestamp': time.time()
                 }, namespace='/')
                 return
                 
@@ -187,13 +188,27 @@ def handle_execute_plugin(data):
                 logger.error(f"Plugin {plugin_id} not found")
                 socketio.emit('plugin_error', {
                     'plugin_id': plugin_id,
-                    'error': f'Plugin {plugin_id} not found'
+                    'error': f'Plugin {plugin_id} not found',
+                    'timestamp': time.time()
                 }, namespace='/')
                 return
                 
             logger.info(f"Executing plugin {plugin_id} with params: {params}")
+            
+            # Start timing the execution
+            start_time = time.time()
+            
+            # Execute the plugin with timeouts managed by plugin manager
             result = plugin_manager.execute_plugin(plugin_id, params)
-            logger.info(f"Plugin {plugin_id} execution completed successfully")
+            
+            exec_time = time.time() - start_time
+            logger.info(f"Plugin {plugin_id} execution completed in {exec_time:.2f}s")
+            
+            # For network_scanner specifically, add a note about timing if it was slow
+            if plugin_id == 'network_scanner' and exec_time > 30:
+                if 'note' not in result:
+                    result['note'] = ""
+                result['note'] += f" Scan took {exec_time:.1f}s which is approaching the timeout limit."
             
             # Ensure the result is JSON serializable
             try:
@@ -205,7 +220,8 @@ def handle_execute_plugin(data):
             socketio.emit('plugin_result', {
                 'plugin_id': plugin_id,
                 'result': result,
-                'timestamp': time.time()
+                'timestamp': time.time(),
+                'execution_time': exec_time
             }, namespace='/')
         except Exception as e:
             logger.error(f"Error executing plugin {plugin_id}: {str(e)}")

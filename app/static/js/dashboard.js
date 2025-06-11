@@ -81,7 +81,37 @@ socket.on('plugin_pending', (data) => {
     if (data.plugin_id === currentPluginId) {
         // Show loading indicator with a timestamp
         const loadingMessage = `Executing plugin... (started at ${new Date().toLocaleTimeString()})`;
-        displayPluginOutput({ type: 'loading', message: loadingMessage });
+        // Set a timeout indicator so user knows progress is happening
+        const progressMessage = `<div class="progress my-3">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                 role="progressbar" aria-valuenow="100" aria-valuemin="0" 
+                 aria-valuemax="100" style="width: 100%"></div>
+        </div>
+        <p class="text-muted">This may take up to 45 seconds for large networks. Please wait...</p>`;
+        
+        displayPluginOutput({ 
+            type: 'loading', 
+            message: loadingMessage + progressMessage
+        });
+        
+        // Set a timeout to update the progress message if it's taking longer
+        setTimeout(() => {
+            if (document.querySelector('.progress-bar-animated')) {
+                const stillWorkingMsg = `<div class="alert alert-info mt-3">
+                    <p>Still working... The network scan is in progress.</p>
+                    <p>Large networks or slow-responding hosts may take longer to scan.</p>
+                </div>`;
+                
+                // Add the still working message if the loading indicator is still showing
+                const outputContainer = document.getElementById('plugin-output');
+                if (outputContainer && outputContainer.innerHTML.includes('progress-bar-animated')) {
+                    const existingContent = outputContainer.innerHTML;
+                    if (!existingContent.includes('Still working')) {
+                        outputContainer.innerHTML += stillWorkingMsg;
+                    }
+                }
+            }
+        }, 15000); // Show after 15 seconds
     }
 });
 
@@ -100,6 +130,30 @@ socket.on('plugin_result', (data) => {
                 _executionTime: timestamp
             };
             displayPluginOutput(resultWithTime);
+            
+            // Add warning for scans that were limited or had timeouts
+            if (data.result && (data.result.warning || data.result.note)) {
+                setTimeout(() => {
+                    // Find the output container
+                    const outputContainer = document.getElementById('plugin-output');
+                    
+                    // Add a tip for large networks if we limited the scan
+                    if (data.result.note && data.result.note.includes('Limited scan')) {
+                        const tipHtml = `
+                            <div class="alert alert-warning mt-3">
+                                <h5>Tip for large networks:</h5>
+                                <p>To avoid timeouts, consider:</p>
+                                <ul>
+                                    <li>Scanning smaller subnets (e.g., /25 or /26 instead of /24)</li>
+                                    <li>Using the "Quick Scan" option</li>
+                                    <li>Reducing the timeout value</li>
+                                </ul>
+                            </div>
+                        `;
+                        outputContainer.insertAdjacentHTML('beforeend', tipHtml);
+                    }
+                }, 500);
+            }
         }
     }
 });
@@ -327,6 +381,8 @@ function displayPluginOutput(result) {
                     <p><strong>Subnet:</strong> ${result.subnet}</p>
                     <p><strong>Hosts Found:</strong> ${result.hosts_found}</p>
                     <p><strong>Scan Time:</strong> ${result.scan_time} seconds</p>
+                    ${result.hosts_scanned ? `<p><strong>Hosts Scanned:</strong> ${result.hosts_scanned} of ${result.total_hosts}</p>` : ''}
+                    ${result.note ? `<p><strong>Note:</strong> ${result.note}</p>` : ''}
                 </div>
             `;
         }

@@ -12,6 +12,7 @@ import socket
 import subprocess
 import netifaces
 import eventlet
+import eventlet.wsgi
 
 # Patch the standard library with eventlet's cooperative versions
 eventlet.monkey_patch(os=True, select=True, socket=True, thread=True, time=True)
@@ -87,6 +88,12 @@ def check_ethernet_dongle():
     return False
 
 if __name__ == '__main__':
+    # Set more verbose logging to debug server startup issues
+    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger('werkzeug').setLevel(logging.DEBUG)
+    logging.getLogger('engineio').setLevel(logging.DEBUG)
+    logging.getLogger('socketio').setLevel(logging.DEBUG)
+    
     # Check for Ethernet dongle
     has_ethernet = check_ethernet_dongle()
     if not has_ethernet:
@@ -113,8 +120,14 @@ if __name__ == '__main__':
             logger.info(f"  http://{ip}:{port}")
     
     try:
-        # Use socketio.run which is the recommended way for Flask-SocketIO
-        socketio.run(app, host=host, port=port, debug=False, log_output=True)
+        # Print startup message to console
+        print(f"\n* NetScout-Pi server is running at http://{host}:{port}")
+        print("* Press Ctrl+C to stop the server")
+        
+        # Use socketio instead of app.run() for better performance and WebSocket support
+        app.run(host=host, port=port, debug=False, threaded=True)
+    except KeyboardInterrupt:
+        print("\n* Server shutting down...")
     except Exception as e:
         logger.error(f"Error starting server: {str(e)}")
         sys.exit(1)

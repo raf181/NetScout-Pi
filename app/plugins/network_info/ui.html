@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Information</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <!-- JSON Tree Viewer styles -->
+    <style>
+        /* JSON Tree Viewer Styles */
+        .json-tree-viewer {
+            font-family: monospace;
+            font-size: 14px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            padding: 15px;
+            overflow: auto;
+            max-height: 600px;
+            position: relative;
+        }
+        
+        .json-tree-viewer .json-key {
+            color: #0d6efd;
+            font-weight: bold;
+        }
+        
+        .json-tree-viewer .json-value {
+            margin-left: 5px;
+        }
+        
+        .json-tree-viewer .json-string {
+            color: #198754;
+        }
+        
+        .json-tree-viewer .json-number {
+            color: #fd7e14;
+        }
+        
+        .json-tree-viewer .json-boolean {
+            color: #0dcaf0;
+        }
+        
+        .json-tree-viewer .json-null {
+            color: #6c757d;
+        }
+        
+        .json-tree-viewer .json-bracket {
+            color: #495057;
+        }
+        
+        .json-tree-viewer .collapsible {
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .json-tree-viewer .collapsible::before {
+            content: '▶';
+            display: inline-block;
+            margin-right: 5px;
+            transition: transform 0.2s;
+            font-size: 10px;
+        }
+        
+        .json-tree-viewer .collapsible.expanded::before {
+            transform: rotate(90deg);
+        }
+        
+        .json-tree-viewer .json-item {
+            padding-left: 20px;
+            border-left: 1px dotted #dee2e6;
+            margin-left: 5px;
+        }
+        
+        .json-tree-viewer .hidden {
+            display: none;
+        }
+        
+        .json-tree-viewer .json-row {
+            white-space: nowrap;
+            line-height: 1.5;
+        }
+        
+        .json-tree-viewer .json-preview {
+            color: #6c757d;
+            font-style: italic;
+            margin-left: 10px;
+        }
+        
+        .json-controls {
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .json-controls .btn-group {
+            display: flex;
+        }
+        
+        .json-tree-viewer .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+        
+        .json-tree-viewer .copy-btn:hover {
+            opacity: 1;
+        }
+        
+        .json-tree-viewer .json-search {
+            margin-left: 10px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .json-tree-viewer .json-search input {
+            max-width: 150px;
+        }
+        
+        .network-card {
+            margin-bottom: 20px;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border-radius: 0.25rem;
+            transition: all 0.3s ease;
+        }
+        
+        .network-card:hover {
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
+        
+        .network-card .card-header {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+        }
+        
+        .network-card .card-header i {
+            margin-right: 10px;
+            font-size: 1.25rem;
+        }
+        
+        .table-hover tbody tr:hover {
+            background-color: rgba(0, 123, 255, 0.05);
+        }
+        
+        .info-icon {
+            font-size: 3rem;
+            color: #0d6efd;
+        }
+        
+        .interface-badge {
+            font-size: 0.9rem;
+            margin-top: -5px;
+        }
+        
+        pre.ip-info {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 0.25rem;
+            border: 1px solid #dee2e6;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .status-badge {
+            width: 80px;
+            text-align: center;
+        }
+        
+        .ip-block {
+            font-family: monospace;
+            background-color: #f8f9fa;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.2rem;
+            border: 1px solid #dee2e6;
+            display: inline-block;
+        }
+        
+        .network-diagram {
+            height: 220px;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            position: relative;
+            background-color: #f8f9fa;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+        
+        .network-device {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            text-align: center;
+            z-index: 1;
+        }
+        
+        .network-device-icon {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+        
+        .network-connection {
+            position: absolute;
+            height: 2px;
+            background-color: #6c757d;
+            z-index: 0;
+            transform-origin: 0 0;
+        }
+        
+        .accordion-button:not(.collapsed) {
+            background-color: rgba(13, 110, 253, 0.1);
+            color: #0d6efd;
+        }
+        
+        .badge-pill {
+            margin-left: 5px;
+        }
+        
+        .active-tag {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+        
+        .dns-card {
+            border-left: 4px solid #0d6efd;
+        }
+        
+        .dhcp-card {
+            border-left: 4px solid #198754;
+        }
+        
+        .vlan-card {
+            border-left: 4px solid #dc3545;
+        }
+        
+        .routing-card {
+            border-left: 4px solid #fd7e14;
+        }
+        
+        .value-pill {
+            font-family: monospace;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 0.1rem 0.4rem;
+            border-radius: 0.2rem;
+        }
+        
+        /* JSON Tree Viewer highlight for search */
+        .json-tree-viewer .highlight-search {
+            background-color: #fff3cd;
+            border-radius: 0.2rem;
+            padding: 0.1rem 0.2rem;
+            font-weight: bold;
+            box-shadow: 0 0 0 1px #ffc107;
+        }
+        
+        /* Copy toast styling */
+        .toast {
+            z-index: 1100;
+        }
+    </style>
+</head>
+<body>
+    <div class="container my-4">
+        <div class="row">
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="me-4">
+                            <i class="bi bi-hdd-network info-icon"></i>
+                        </div>
+                        <div>
+                            <h2 class="card-title">Network Information</h2>
+                            <p class="card-text">Detailed information about your current network connection including DNS, DHCP, VLAN, and other settings</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="bi bi-gear"></i> Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="network-info-form">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="interface" class="form-label">Network Interface</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-ethernet"></i></span>
+                                        <input type="text" class="form-control" id="interface" name="interface" placeholder="Leave blank for automatic detection">
+                                    </div>
+                                    <small class="text-muted">Leave blank to automatically detect the primary interface</small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check mt-4">
+                                        <input class="form-check-input" type="checkbox" id="deep_scan" name="deep_scan">
+                                        <label class="form-check-label" for="deep_scan">
+                                            <i class="bi bi-search"></i> Deep Scan (More comprehensive but slower)
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-search"></i> Scan Network
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="results-container" class="d-none">
+            <div id="results-loading" class="text-center my-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Gathering network information...</p>
+            </div>
+            
+            <div id="results-error" class="alert alert-danger d-none" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <span id="error-message">Error message will appear here</span>
+            </div>
+            
+            <div id="results-content" class="d-none">
+                <!-- Results will be inserted here dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('network-info-form');
+            const resultsContainer = document.getElementById('results-container');
+            const resultsLoading = document.getElementById('results-loading');
+            const resultsError = document.getElementById('results-error');
+            const errorMessage = document.getElementById('error-message');
+            const resultsContent = document.getElementById('results-content');
+            
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                // Get form values
+                const formData = new FormData(form);
+                const params = {
+                    interface: formData.get('interface'),
+                    deep_scan: formData.get('deep_scan') === 'on'
+                };
+                
+                // Show loading state
+                resultsContainer.classList.remove('d-none');
+                resultsLoading.classList.remove('d-none');
+                resultsError.classList.add('d-none');
+                resultsContent.classList.add('d-none');
+                resultsContent.innerHTML = '';
+                
+                // Execute the plugin (handled by parent frame)
+                window.parent.postMessage({
+                    type: 'execute_plugin',
+                    params
+                }, '*');
+            });
+            
+            // Listen for messages from parent frame
+            window.addEventListener('message', (event) => {
+                if (event.data.type === 'plugin_result') {
+                    // Hide loading
+                    resultsLoading.classList.add('d-none');
+                    
+                    if (event.data.error) {
+                        // Show error
+                        errorMessage.textContent = event.data.error;
+                        resultsError.classList.remove('d-none');
+                    } else {
+                        // Show results
+                        renderResults(event.data.result);
+                        resultsContent.classList.remove('d-none');
+                    }
+                }
+            });
+            
+            // Function to render results with improved visualization
+            function renderResults(result) {
+                if (result.error) {
+                    errorMessage.textContent = result.error;
+                    resultsError.classList.remove('d-none');
+                    return;
+                }
+                
+                // Create a network summary card with visual elements
+                const summaryCard = createNetworkSummaryCard(result);
+                resultsContent.appendChild(summaryCard);
+                
+                // Create interactive network diagram if we have basic info
+                if (result.basic_info && result.basic_info.ip_address) {
+                    const diagramCard = createNetworkDiagramCard(result);
+                    resultsContent.appendChild(diagramCard);
+                }
+                
+                // Create accordion for detailed information
+                const accordionContainer = document.createElement('div');
+                accordionContainer.className = 'accordion mt-4 mb-4';
+                accordionContainer.id = 'networkDetailsAccordion';
+                
+                // Add accordion items for each section
+                if (result.sections && result.sections.length > 0) {
+                    result.sections.forEach((section, index) => {
+                        const accordionItem = createAccordionItem(section, index);
+                        accordionContainer.appendChild(accordionItem);
+                    });
+                    
+                    resultsContent.appendChild(accordionContainer);
+                } else {
+                    // Fallback if sections are not available
+                    const rawDataCard = document.createElement('div');
+                    rawDataCard.className = 'card mb-4';
+                    rawDataCard.innerHTML = `
+                        <div class="card-header">
+                            <h5><i class="bi bi-code-square"></i> Raw Network Data</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="json-tree-container" class="json-tree-container"></div>
+                        </div>
+                    `;
+                    resultsContent.appendChild(rawDataCard);
+                    
+                    // Create the interactive JSON tree viewer
+                    setTimeout(() => {
+                        const container = document.getElementById('json-tree-container');
+                        const jsonViewer = new JSONTreeViewer(result);
+                        container.appendChild(jsonViewer.getContainer());
+                        
+                        // Initially expand the first level
+                        jsonViewer.collapseAll();
+                        const rootElements = container.querySelectorAll('.json-tree-viewer > div > .collapsible');
+                        if (rootElements.length > 0) {
+                            rootElements[0].classList.add('expanded');
+                            const items = rootElements[0].parentNode.querySelector('.json-item');
+                            if (items) {
+                                items.classList.remove('hidden');
+                            }
+                        }
+                    }, 0);
+                }
+            }
+            
+            // Function to create a network summary card
+            function createNetworkSummaryCard(result) {
+                const card = document.createElement('div');
+                card.className = 'card mb-4';
+                
+                let statusClass = 'bg-secondary';
+                let statusText = 'Unknown';
+                
+                if (result.basic_info && result.basic_info.status) {
+                    if (result.basic_info.status === 'Up') {
+                        statusClass = 'bg-success';
+                        statusText = 'Active';
+                    } else {
+                        statusClass = 'bg-danger';
+                        statusText = 'Down';
+                    }
+                }
+                
+                const ipAddress = result.basic_info && result.basic_info.ip_address ? 
+                    result.basic_info.ip_address : 'N/A';
+                const macAddress = result.basic_info && result.basic_info.mac_address ? 
+                    result.basic_info.mac_address : 'N/A';
+                
+                card.innerHTML = `
+                    <div class="card-header bg-primary text-white">
+                        <h5><i class="bi bi-info-circle"></i> Network Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <h4>
+                                    <span class="badge ${statusClass} me-2">${statusText}</span>
+                                    ${result.interface}
+                                </h4>
+                                <div class="mt-3">
+                                    <p><strong><i class="bi bi-globe"></i> IP Address:</strong> <span class="ip-block">${ipAddress}</span></p>
+                                    <p><strong><i class="bi bi-upc-scan"></i> MAC Address:</strong> <span class="value-pill">${macAddress}</span></p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-light">
+                                    <div class="card-body p-3">
+                                        <h6><i class="bi bi-speedometer2"></i> Quick Stats</h6>
+                                        <ul class="list-unstyled">
+                                            <li><i class="bi bi-hdd-network"></i> DNS Servers: <strong>${result.dns_info && result.dns_info.servers ? result.dns_info.servers.length : 0}</strong></li>
+                                            <li><i class="bi bi-router"></i> DHCP: <strong>${result.dhcp_info && result.dhcp_info.enabled ? 'Enabled' : 'N/A'}</strong></li>
+                                            <li><i class="bi bi-shuffle"></i> VLAN: <strong>${result.vlan_info && result.vlan_info.id ? result.vlan_info.id : 'None'}</strong></li>
+                                        </ul>
+                                        <div class="text-muted small mt-2">Scan completed in ${result.scan_time}s</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                return card;
+            }
+            
+            // Function to create a network diagram visualization
+            function createNetworkDiagramCard(result) {
+                const card = document.createElement('div');
+                card.className = 'card mb-4';
+                
+                const cardHeader = document.createElement('div');
+                cardHeader.className = 'card-header';
+                cardHeader.innerHTML = '<h5><i class="bi bi-diagram-3"></i> Network Visualization</h5>';
+                
+                const cardBody = document.createElement('div');
+                cardBody.className = 'card-body';
+                
+                const diagram = document.createElement('div');
+                diagram.className = 'network-diagram';
+                
+                // Add elements to the diagram
+                const router = document.createElement('div');
+                router.className = 'network-device';
+                router.style.top = '30px';
+                router.style.left = '50%';
+                router.style.transform = 'translateX(-50%)';
+                router.innerHTML = `
+                    <div class="network-device-icon"><i class="bi bi-router"></i></div>
+                    <div>Router/Gateway</div>
+                    <small class="text-muted">${result.dhcp_info && result.dhcp_info.server ? result.dhcp_info.server : 'Gateway'}</small>
+                `;
+                
+                const thisDevice = document.createElement('div');
+                thisDevice.className = 'network-device';
+                thisDevice.style.top = '140px';
+                thisDevice.style.left = '50%';
+                thisDevice.style.transform = 'translateX(-50%)';
+                thisDevice.innerHTML = `
+                    <div class="network-device-icon"><i class="bi bi-laptop"></i></div>
+                    <div>This Device</div>
+                    <small class="ip-block">${result.basic_info.ip_address}</small>
+                `;
+                
+                // Create DNS servers
+                let dnsDevices = [];
+                if (result.dns_info && result.dns_info.servers && result.dns_info.servers.length > 0) {
+                    let serverCount = Math.min(result.dns_info.servers.length, 2); // Show max 2 servers
+                    for (let i = 0; i < serverCount; i++) {
+                        const offset = i === 0 ? -160 : 160;
+                        const dns = document.createElement('div');
+                        dns.className = 'network-device';
+                        dns.style.top = '30px';
+                        dns.style.left = `calc(50% + ${offset}px)`;
+                        dns.style.transform = 'translateX(-50%)';
+                        dns.innerHTML = `
+                            <div class="network-device-icon"><i class="bi bi-server"></i></div>
+                            <div>DNS Server</div>
+                            <small class="ip-block">${result.dns_info.servers[i]}</small>
+                        `;
+                        diagram.appendChild(dns);
+                        dnsDevices.push(dns);
+                        
+                        // Create connection to router
+                        createConnection(diagram, 
+                            offset > 0 ? router.offsetLeft + 40 : router.offsetLeft + 40, 
+                            router.offsetTop + 40,
+                            dns.offsetLeft + 40, 
+                            dns.offsetTop + 40);
+                    }
+                }
+                
+                // Create connection from router to this device
+                diagram.appendChild(router);
+                diagram.appendChild(thisDevice);
+                
+                // After adding to DOM, create connections
+                setTimeout(() => {
+                    const connection = document.createElement('div');
+                    connection.className = 'network-connection';
+                    
+                    // Calculate positions for router and device
+                    const routerPos = {
+                        x: diagram.offsetWidth / 2,
+                        y: router.offsetTop + 80
+                    };
+                    
+                    const devicePos = {
+                        x: diagram.offsetWidth / 2,
+                        y: thisDevice.offsetTop
+                    };
+                    
+                    // Set connection position and dimensions
+                    const length = devicePos.y - routerPos.y;
+                    connection.style.top = `${routerPos.y}px`;
+                    connection.style.left = `${routerPos.x}px`;
+                    connection.style.height = `${length}px`;
+                    
+                    diagram.appendChild(connection);
+                }, 0);
+                
+                cardBody.appendChild(diagram);
+                
+                // Additional information about the visualization
+                const info = document.createElement('div');
+                info.className = 'alert alert-info mt-3 mb-0';
+                info.innerHTML = `
+                    <small>
+                        <strong>Note:</strong> This is a simplified visualization of your network configuration.
+                        Refer to the detailed sections below for complete information.
+                    </small>
+                `;
+                cardBody.appendChild(info);
+                
+                card.appendChild(cardHeader);
+                card.appendChild(cardBody);
+                
+                return card;
+            }
+            
+            // Helper function to create connection lines
+            function createConnection(container, x1, y1, x2, y2) {
+                const connection = document.createElement('div');
+                connection.className = 'network-connection';
+                
+                // Calculate length and angle
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                
+                // Position and rotate the connection
+                connection.style.width = `${length}px`;
+                connection.style.left = `${x1}px`;
+                connection.style.top = `${y1}px`;
+                connection.style.transform = `rotate(${angle}deg)`;
+                
+                container.appendChild(connection);
+            }
+            
+            // Function to create an accordion item
+            function createAccordionItem(section, index) {
+                const iconMap = {
+                    'Basic Network Information': 'bi-ethernet',
+                    'DNS Configuration': 'bi-globe',
+                    'DHCP Information': 'bi-router',
+                    'VLAN Configuration': 'bi-diagram-3',
+                    'Routing Information': 'bi-signpost-split',
+                    'Additional Information': 'bi-info-circle'
+                };
+                
+                const cssClassMap = {
+                    'DNS Configuration': 'dns-card',
+                    'DHCP Information': 'dhcp-card',
+                    'VLAN Configuration': 'vlan-card',
+                    'Routing Information': 'routing-card'
+                };
+                
+                const icon = iconMap[section.title] || 'bi-card-list';
+                const cssClass = cssClassMap[section.title] || '';
+                
+                const accordionItem = document.createElement('div');
+                accordionItem.className = `accordion-item ${cssClass}`;
+                
+                const headerId = `heading${index}`;
+                const collapseId = `collapse${index}`;
+                
+                accordionItem.innerHTML = `
+                    <h2 class="accordion-header" id="${headerId}">
+                        <button class="accordion-button ${index === 0 ? '' : 'collapsed'}" 
+                                type="button" 
+                                data-bs-toggle="collapse" 
+                                data-bs-target="#${collapseId}" 
+                                aria-expanded="${index === 0 ? 'true' : 'false'}" 
+                                aria-controls="${collapseId}">
+                            <i class="bi ${icon} me-2"></i> ${section.title}
+                        </button>
+                    </h2>
+                    <div id="${collapseId}" 
+                         class="accordion-collapse collapse ${index === 0 ? 'show' : ''}" 
+                         aria-labelledby="${headerId}" 
+                         data-bs-parent="#networkDetailsAccordion">
+                        <div class="accordion-body">
+                            <!-- Content will be added here -->
+                        </div>
+                    </div>
+                `;
+                
+                // Add content to the accordion body after it's in the DOM
+                setTimeout(() => {
+                    const accordionBody = accordionItem.querySelector('.accordion-body');
+                    
+                    if (section.type === 'key_value') {
+                        // Create enhanced table for key-value data
+                        const table = document.createElement('table');
+                        table.className = 'table table-hover';
+                        
+                        const tbody = document.createElement('tbody');
+                        section.data.forEach(item => {
+                            const row = document.createElement('tr');
+                            
+                            // Format the value based on content
+                            let formattedValue = item.value;
+                            
+                            // Special formatting for IP addresses
+                            if (/^\d+\.\d+\.\d+\.\d+$/.test(item.value)) {
+                                formattedValue = `<span class="ip-block">${item.value}</span>`;
+                            } 
+                            // Format for status values
+                            else if (item.key.toLowerCase().includes('status')) {
+                                let statusClass = 'secondary';
+                                if (item.value === 'Active' || item.value === 'Up' || item.value === 'Yes' || item.value === 'Enabled') {
+                                    statusClass = 'success';
+                                } else if (item.value === 'Inactive' || item.value === 'Down' || item.value === 'No' || item.value === 'Disabled') {
+                                    statusClass = 'danger';
+                                }
+                                formattedValue = `<span class="badge bg-${statusClass} status-badge">${item.value}</span>`;
+                            }
+                            // Format for MAC addresses
+                            else if (/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/.test(item.value)) {
+                                formattedValue = `<span class="value-pill">${item.value}</span>`;
+                            }
+                            // Format for complex JSON objects
+                            else if (typeof item.value === 'object' && item.value !== null) {
+                                // Handle objects differently - create a collapsible JSON viewer
+                                const valueCell = document.createElement('td');
+                                row.innerHTML = `<td style="width: 30%"><strong>${item.key}</strong></td>`;
+                                row.appendChild(valueCell);
+                                
+                                tbody.appendChild(row);
+                                
+                                // Create the JSON tree viewer in the value cell
+                                setTimeout(() => {
+                                    const jsonViewer = new JSONTreeViewer(item.value);
+                                    valueCell.appendChild(jsonViewer.getContainer());
+                                    // Collapse by default
+                                    jsonViewer.collapseAll();
+                                }, 0);
+                                
+                                // Already added this row, so skip to next iteration
+                                return;
+                            }
+                            
+                            row.innerHTML = `
+                                <td style="width: 30%"><strong>${item.key}</strong></td>
+                                <td>${formattedValue}</td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                        
+                        table.appendChild(tbody);
+                        accordionBody.appendChild(table);
+                    } else if (section.type === 'list') {
+                        // Create enhanced list for array data
+                        const listGroup = document.createElement('div');
+                        listGroup.className = 'list-group';
+                        
+                        section.data.forEach(item => {
+                            const listItem = document.createElement('div');
+                            listItem.className = 'list-group-item';
+                            
+                            // Special formatting for IP addresses in lists
+                            if (typeof item === 'string' && /^\d+\.\d+\.\d+\.\d+$/.test(item)) {
+                                listItem.innerHTML = `<i class="bi bi-hdd-network me-2"></i> <span class="ip-block">${item}</span>`;
+                            } 
+                            // Handle objects in lists
+                            else if (typeof item === 'object' && item !== null) {
+                                listItem.innerHTML = `<i class="bi bi-braces me-2"></i> <span>Complex Data</span>`;
+                                const jsonContainer = document.createElement('div');
+                                jsonContainer.className = 'mt-2';
+                                listItem.appendChild(jsonContainer);
+                                
+                                // Create the JSON tree viewer for this object
+                                setTimeout(() => {
+                                    const jsonViewer = new JSONTreeViewer(item);
+                                    jsonContainer.appendChild(jsonViewer.getContainer());
+                                    // Initially collapse
+                                    jsonViewer.collapseAll();
+                                }, 0);
+                            }
+                            else {
+                                listItem.innerHTML = `<i class="bi bi-chevron-right me-2"></i> ${item}`;
+                            }
+                            
+                            listGroup.appendChild(listItem);
+                        });
+                        
+                        accordionBody.appendChild(listGroup);
+                    } else {
+                        // Fallback for unknown types with interactive JSON viewer
+                        const container = document.createElement('div');
+                        container.className = 'json-container';
+                        
+                        // Create the interactive JSON tree viewer
+                        const jsonViewer = new JSONTreeViewer(section.data || section);
+                        container.appendChild(jsonViewer.getContainer());
+                        accordionBody.appendChild(container);
+                    }
+                }, 0);
+                
+                return accordionItem;
+            }
+        });
+    </script>
+    
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- JSON Tree Viewer -->
+    <script>
+        /**
+         * Creates an interactive, collapsible tree view for JSON data
+         */
+        class JSONTreeViewer {
+            constructor(jsonData) {
+                this.jsonData = jsonData;
+                this.container = document.createElement('div');
+                this.container.className = 'json-tree-viewer';
+                this.init();
+            }
+            
+            init() {
+                // Add controls
+                const controls = document.createElement('div');
+                controls.className = 'json-controls';
+                
+                const buttonGroup = document.createElement('div');
+                buttonGroup.className = 'btn-group';
+                
+                const expandAllBtn = document.createElement('button');
+                expandAllBtn.className = 'btn btn-sm btn-outline-primary';
+                expandAllBtn.innerHTML = '<i class="bi bi-arrows-angle-expand me-1"></i> Expand All';
+                expandAllBtn.addEventListener('click', () => this.expandAll());
+                
+                const collapseAllBtn = document.createElement('button');
+                collapseAllBtn.className = 'btn btn-sm btn-outline-secondary';
+                collapseAllBtn.innerHTML = '<i class="bi bi-arrows-angle-contract me-1"></i> Collapse All';
+                collapseAllBtn.addEventListener('click', () => this.collapseAll());
+                
+                // Add copy button
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'btn btn-sm btn-outline-secondary ms-2';
+                copyBtn.innerHTML = '<i class="bi bi-clipboard me-1"></i> Copy JSON';
+                copyBtn.addEventListener('click', () => this.copyToClipboard());
+                
+                // Add raw view button
+                const rawViewBtn = document.createElement('button');
+                rawViewBtn.className = 'btn btn-sm btn-outline-info ms-2';
+                rawViewBtn.innerHTML = '<i class="bi bi-code-slash me-1"></i> Raw View';
+                rawViewBtn.addEventListener('click', () => this.toggleRawView());
+                
+                // Add search functionality
+                const searchDiv = document.createElement('div');
+                searchDiv.className = 'json-search';
+                
+                const searchInput = document.createElement('input');
+                searchInput.type = 'text';
+                searchInput.className = 'form-control form-control-sm';
+                searchInput.placeholder = 'Search...';
+                searchInput.addEventListener('input', (e) => this.searchJSON(e.target.value));
+                
+                searchDiv.appendChild(searchInput);
+                
+                buttonGroup.appendChild(expandAllBtn);
+                buttonGroup.appendChild(collapseAllBtn);
+                buttonGroup.appendChild(copyBtn);
+                buttonGroup.appendChild(rawViewBtn);
+                
+                controls.appendChild(buttonGroup);
+                controls.appendChild(searchDiv);
+                
+                this.container.appendChild(controls);
+                
+                // Create the tree
+                const tree = this.createTree(this.jsonData);
+                this.container.appendChild(tree);
+            }
+            
+            createTree(data, path = '') {
+                const fragment = document.createDocumentFragment();
+                
+                if (data === null) {
+                    const valueElem = document.createElement('span');
+                    valueElem.className = 'json-value json-null';
+                    valueElem.textContent = 'null';
+                    fragment.appendChild(valueElem);
+                    return fragment;
+                }
+                
+                if (typeof data !== 'object') {
+                    const valueElem = document.createElement('span');
+                    valueElem.className = `json-value json-${typeof data}`;
+                    
+                    if (typeof data === 'string') {
+                        valueElem.textContent = `"${data}"`;
+                    } else {
+                        valueElem.textContent = data;
+                    }
+                    
+                    fragment.appendChild(valueElem);
+                    return fragment;
+                }
+                
+                const isArray = Array.isArray(data);
+                const isEmpty = Object.keys(data).length === 0;
+                
+                if (isEmpty) {
+                    const emptyElem = document.createElement('span');
+                    emptyElem.textContent = isArray ? '[]' : '{}';
+                    emptyElem.className = 'json-bracket';
+                    fragment.appendChild(emptyElem);
+                    return fragment;
+                }
+                
+                const containerDiv = document.createElement('div');
+                const openBracket = document.createElement('div');
+                openBracket.className = 'json-row collapsible expanded';
+                openBracket.innerHTML = `<span class="json-bracket">${isArray ? '[' : '{'}</span>`;
+                
+                // Add a preview of contents
+                const preview = this.generatePreview(data);
+                if (preview) {
+                    const previewSpan = document.createElement('span');
+                    previewSpan.className = 'json-preview';
+                    previewSpan.textContent = preview;
+                    openBracket.appendChild(previewSpan);
+                }
+                
+                openBracket.addEventListener('click', (e) => {
+                    if (e.target === openBracket || e.target.className.includes('json-bracket')) {
+                        openBracket.classList.toggle('expanded');
+                        const items = containerDiv.querySelector('.json-item');
+                        if (items) {
+                            items.classList.toggle('hidden');
+                        }
+                    }
+                });
+                
+                containerDiv.appendChild(openBracket);
+                
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'json-item';
+                
+                // Process each key in the object or array
+                Object.keys(data).forEach(key => {
+                    const row = document.createElement('div');
+                    row.className = 'json-row';
+                    
+                    if (!isArray) {
+                        const keySpan = document.createElement('span');
+                        keySpan.className = 'json-key';
+                        keySpan.textContent = `"${key}": `;
+                        row.appendChild(keySpan);
+                    } else {
+                        const keySpan = document.createElement('span');
+                        keySpan.className = 'json-key';
+                        keySpan.textContent = `${key}: `;
+                        row.appendChild(keySpan);
+                    }
+                    
+                    const childPath = path ? `${path}.${key}` : key;
+                    const valueContainer = this.createTree(data[key], childPath);
+                    row.appendChild(valueContainer);
+                    
+                    contentDiv.appendChild(row);
+                });
+                
+                containerDiv.appendChild(contentDiv);
+                
+                const closeBracket = document.createElement('div');
+                closeBracket.className = 'json-row';
+                closeBracket.innerHTML = `<span class="json-bracket">${isArray ? ']' : '}'}</span>`;
+                containerDiv.appendChild(closeBracket);
+                
+                fragment.appendChild(containerDiv);
+                return fragment;
+            }
+            
+            generatePreview(data) {
+                if (Array.isArray(data)) {
+                    return `${data.length} items`;
+                } else {
+                    const keys = Object.keys(data);
+                    return `${keys.length} properties`;
+                }
+            }
+            
+            expandAll() {
+                const elements = this.container.querySelectorAll('.collapsible');
+                elements.forEach(el => {
+                    el.classList.add('expanded');
+                    const items = el.parentNode.querySelector('.json-item');
+                    if (items) {
+                        items.classList.remove('hidden');
+                    }
+                });
+            }
+            
+            collapseAll() {
+                // Keep the root expanded
+                const elements = this.container.querySelectorAll('.json-item .collapsible');
+                elements.forEach(el => {
+                    el.classList.remove('expanded');
+                    const items = el.parentNode.querySelector('.json-item');
+                    if (items) {
+                        items.classList.add('hidden');
+                    }
+                });
+            }
+            
+            getContainer() {
+                return this.container;
+            }
+            
+            copyToClipboard() {
+                try {
+                    const jsonString = JSON.stringify(this.jsonData, null, 2);
+                    navigator.clipboard.writeText(jsonString).then(() => {
+                        // Create a temporary toast notification
+                        const toast = document.createElement('div');
+                        toast.className = 'toast position-fixed bottom-0 end-0 m-3';
+                        toast.setAttribute('role', 'alert');
+                        toast.setAttribute('aria-live', 'assertive');
+                        toast.setAttribute('aria-atomic', 'true');
+                        toast.innerHTML = `
+                            <div class="toast-header bg-success text-white">
+                                <i class="bi bi-check-circle me-2"></i>
+                                <strong class="me-auto">Success</strong>
+                                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                            </div>
+                            <div class="toast-body">
+                                JSON copied to clipboard
+                            </div>
+                        `;
+                        document.body.appendChild(toast);
+                        
+                        // Initialize and show the toast
+                        const bsToast = new bootstrap.Toast(toast);
+                        bsToast.show();
+                        
+                        // Remove after it's hidden
+                        toast.addEventListener('hidden.bs.toast', () => {
+                            document.body.removeChild(toast);
+                        });
+                    });
+                } catch (err) {
+                    console.error('Failed to copy JSON:', err);
+                    alert('Failed to copy JSON to clipboard');
+                }
+            }
+            
+            searchJSON(term) {
+                if (!term) {
+                    // Reset search highlights
+                    this.container.querySelectorAll('.highlight-search').forEach(el => {
+                        el.classList.remove('highlight-search');
+                    });
+                    return;
+                }
+                
+                term = term.toLowerCase();
+                
+                // Reset previous search
+                this.container.querySelectorAll('.highlight-search').forEach(el => {
+                    el.classList.remove('highlight-search');
+                });
+                
+                // Find all keys and values that match
+                const keyElements = this.container.querySelectorAll('.json-key');
+                const valueElements = this.container.querySelectorAll('.json-value');
+                
+                let matchFound = false;
+                
+                // Search in keys
+                keyElements.forEach(el => {
+                    const text = el.textContent.toLowerCase();
+                    if (text.includes(term)) {
+                        el.classList.add('highlight-search');
+                        
+                        // Expand parent items to make this visible
+                        let parent = el.closest('.json-item');
+                        while (parent) {
+                            const collapsible = parent.previousElementSibling;
+                            if (collapsible && collapsible.classList.contains('collapsible')) {
+                                collapsible.classList.add('expanded');
+                                parent.classList.remove('hidden');
+                            }
+                            parent = parent.parentElement.closest('.json-item');
+                        }
+                        
+                        matchFound = true;
+                    }
+                });
+                
+                // Search in values
+                valueElements.forEach(el => {
+                    const text = el.textContent.toLowerCase();
+                    if (text.includes(term)) {
+                        el.classList.add('highlight-search');
+                        
+                        // Expand parent items to make this visible
+                        let parent = el.closest('.json-item');
+                        while (parent) {
+                            const collapsible = parent.previousElementSibling;
+                            if (collapsible && collapsible.classList.contains('collapsible')) {
+                                collapsible.classList.add('expanded');
+                                parent.classList.remove('hidden');
+                            }
+                            parent = parent.parentElement.closest('.json-item');
+                        }
+                        
+                        matchFound = true;
+                    }
+                });
+                
+                if (!matchFound) {
+                    console.log('No matches found for:', term);
+                }
+            }
+            
+            toggleRawView() {
+                // Check if raw view is already shown
+                const existingRawView = this.container.querySelector('.json-raw-view');
+                
+                if (existingRawView) {
+                    // Toggle back to tree view
+                    existingRawView.remove();
+                    this.container.querySelectorAll('.json-tree-content').forEach(el => {
+                        el.style.display = '';
+                    });
+                } else {
+                    // Format the JSON data
+                    const formattedJson = JSON.stringify(this.jsonData, null, 2);
+                    
+                    // Hide the tree view
+                    const treeContent = Array.from(this.container.children).filter(
+                        child => !child.classList.contains('json-controls')
+                    );
+                    treeContent.forEach(el => {
+                        el.classList.add('json-tree-content');
+                        el.style.display = 'none';
+                    });
+                    
+                    // Create the raw view
+                    const rawView = document.createElement('pre');
+                    rawView.className = 'json-raw-view';
+                    rawView.style.margin = '0';
+                    rawView.style.maxHeight = '500px';
+                    rawView.style.overflow = 'auto';
+                    rawView.style.backgroundColor = '#f8f9fa';
+                    rawView.style.padding = '15px';
+                    rawView.style.borderRadius = '0.25rem';
+                    rawView.style.border = '1px solid #dee2e6';
+                    rawView.textContent = formattedJson;
+                    
+                    // Add it to the container
+                    this.container.appendChild(rawView);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

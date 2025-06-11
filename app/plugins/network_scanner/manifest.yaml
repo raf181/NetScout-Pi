@@ -26,4 +26,12 @@ parameters:
     description: Use a faster but less comprehensive scan
     default: true
     required: false
+  - name: max_hosts
+    label: Maximum Hosts
+    type: number
+    description: Maximum number of hosts to scan (limit this to avoid timeouts)
+    default: 25
+    min: 1
+    max: 254
+    required: false
 ui_path: ui.html

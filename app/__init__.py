@@ -12,8 +12,9 @@ socketio = SocketIO(cors_allowed_origins="*",
                    async_mode='eventlet',
                    logger=True,
                    engineio_logger=True,
-                   ping_timeout=60,
-                   ping_interval=25)
+                   ping_timeout=70,  # Increased to 70 seconds
+                   ping_interval=25,
+                   always_connect=True)  # Force immediate connection
 logger = logging.getLogger(__name__)
 
 def create_app(test_config=None):
