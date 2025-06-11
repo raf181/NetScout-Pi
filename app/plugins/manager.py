@@ -172,15 +172,44 @@ class PluginManager:
             ValueError: If the plugin is not found.
         """
         if plugin_id not in self.plugins:
+            logger.error(f"Plugin {plugin_id} not found")
             raise ValueError(f"Plugin {plugin_id} not found")
             
         if params is None:
             params = {}
             
         plugin = self.plugins[plugin_id]
+        logger.info(f"Executing plugin {plugin_id} with params: {params}")
+        
         try:
-            result = plugin['module'].execute(params)
-            return result
+            # Validate the module has an execute function
+            if not hasattr(plugin['module'], 'execute'):
+                error_msg = f"Plugin {plugin_id} is missing the execute function"
+                logger.error(error_msg)
+                raise AttributeError(error_msg)
+                
+            # Set a timeout for the plugin execution to prevent hangs
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(plugin['module'].execute, params)
+                try:
+                    # 60 second timeout (increased from 30)
+                    result = future.result(timeout=60)
+                    logger.info(f"Plugin {plugin_id} execution completed")
+                    
+                    # Ensure the result is JSON serializable
+                    try:
+                        json.dumps(result)
+                    except (TypeError, OverflowError):
+                        logger.warning(f"Plugin {plugin_id} returned non-JSON serializable result")
+                        result = {'warning': 'Plugin returned non-serializable data', 'data': str(result)}
+                        
+                    return result
+                except concurrent.futures.TimeoutError:
+                    logger.error(f"Plugin {plugin_id} execution timed out after 60 seconds")
+                    raise TimeoutError(f"Plugin execution timed out after 60 seconds")
+        except TimeoutError:
+            raise
         except Exception as e:
             logger.error(f"Error executing plugin {plugin_id}: {str(e)}")
             raise

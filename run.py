@@ -11,6 +11,11 @@ import logging
 import socket
 import subprocess
 import netifaces
+import eventlet
+
+# Patch the standard library with eventlet's cooperative versions
+eventlet.monkey_patch(os=True, select=True, socket=True, thread=True, time=True)
+
 from app import create_app, socketio
 
 # Ensure /usr/sbin is in PATH for network commands like arp
@@ -107,5 +112,9 @@ if __name__ == '__main__':
         for interface, ip in ip_addresses.items():
             logger.info(f"  http://{ip}:{port}")
     
-    # Start the SocketIO server (which also runs the Flask app)
-    socketio.run(app, host=host, port=port, debug=True)
+    try:
+        # Use socketio.run which is the recommended way for Flask-SocketIO
+        socketio.run(app, host=host, port=port, debug=False, log_output=True)
+    except Exception as e:
+        logger.error(f"Error starting server: {str(e)}")
+        sys.exit(1)

@@ -2,8 +2,13 @@
  * Plugin page JavaScript functionality for NetScout Pi
  */
 
-// Initialize Socket.IO connection
-const socket = io();
+// Initialize Socket.IO connection with explicit transport configuration
+const socket = io({
+    transports: ['websocket', 'polling'],
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    timeout: 20000
+});
 
 // DOM Elements
 const runPluginBtn = document.getElementById('run-plugin-btn');

@@ -4,11 +4,16 @@ Application factory module for NetScout-Pi-V2.
 
 import os
 import logging
-from flask import Flask
+from flask import Flask, render_template
 from flask_socketio import SocketIO
 
 # Initialize Flask-SocketIO for real-time communication
-socketio = SocketIO()
+socketio = SocketIO(cors_allowed_origins="*", 
+                   async_mode='eventlet',
+                   logger=True,
+                   engineio_logger=True,
+                   ping_timeout=60,
+                   ping_interval=25)
 logger = logging.getLogger(__name__)
 
 def create_app(test_config=None):
@@ -55,6 +60,15 @@ def create_app(test_config=None):
     app.register_blueprint(dashboard_bp)
 
     # Initialize Socket.IO with the app
-    socketio.init_app(app, cors_allowed_origins="*")
+    socketio.init_app(app, transports=['polling', 'websocket'])
+
+    # Register error handlers
+    @app.errorhandler(404)
+    def page_not_found(e):
+        return render_template('error.html', message="Page not found"), 404
+
+    @app.errorhandler(500)
+    def internal_server_error(e):
+        return render_template('error.html', message="Internal server error"), 500
 
     return app

@@ -1,6 +1,6 @@
 """
 Network Scanner Plugin for NetScout Pi.
-Scans the local network for connected devices.
+Scans the local network for connected devices using ping.
 """
 
 import subprocess
@@ -9,12 +9,13 @@ import platform
 import socket
 import time
 import re
+import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Any
 
 def execute(params: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Execute the network scanner plugin.
+    Execute the network scanner plugin using ping.
     
     Args:
         params (dict): Parameters for the plugin.
@@ -30,24 +31,12 @@ def execute(params: Dict[str, Any]) -> Dict[str, Any]:
     quick_scan = bool(params.get('quick_scan', True))
     
     try:
-        # Check if required tools are installed
-        missing_tools = []
-        
-        # Check if ip command is available
+        # Check if ping command is available
         try:
-            subprocess.check_output("which ip", shell=True)
+            subprocess.check_output("which ping", shell=True)
         except subprocess.CalledProcessError:
-            missing_tools.append("ip")
-            
-        # Check if arp command is available (either in PATH or at /usr/sbin/arp)
-        try:
-            subprocess.check_output("which arp || [ -f /usr/sbin/arp ]", shell=True)
-        except subprocess.CalledProcessError:
-            missing_tools.append("arp (net-tools)")
-            
-        if missing_tools:
             return {
-                'error': f"Network tools not available: {', '.join(missing_tools)}. Please run 'sudo ./install_dependencies.sh' from the project root directory."
+                'error': "Ping command not available. Please ensure ping is installed."
             }
             
         # Parse subnet to get IP addresses to scan
@@ -62,7 +51,7 @@ def execute(params: Dict[str, Any]) -> Dict[str, Any]:
         # Format results
         return {
             'type': 'table',
-            'headers': ['IP Address', 'Hostname', 'MAC Address', 'Status'],
+            'headers': ['IP Address', 'Hostname', 'Status', 'Response Time'],
             'data': scan_results
         }
     except Exception as e:
@@ -85,29 +74,28 @@ def scan_network(hosts, timeout, quick_scan):
     results = []
     
     # Use multithreading for faster scanning
-    with ThreadPoolExecutor(max_workers=20) as executor:
-        if quick_scan:
-            # Use ICMP ping for quick scan
-            futures = {executor.submit(ping_host, str(host), timeout): host for host in hosts}
-        else:
-            # Use port scan for more thorough scan
-            futures = {executor.submit(scan_host, str(host), timeout): host for host in hosts}
+    with ThreadPoolExecutor(max_workers=50 if quick_scan else 25) as executor:
+        # Use ICMP ping for all scans (simplifies and makes more reliable)
+        futures = {executor.submit(ping_host, str(host), timeout): host for host in hosts}
         
         for future in futures:
             host = futures[future]
             try:
                 result = future.result()
                 if result['status'] == 'active':
+                    # Format: [IP, Hostname, Status, Response Time]
                     results.append([
                         result['ip_address'],
                         result['hostname'],
-                        result['mac_address'],
-                        'Active'
+                        'Active',
+                        result.get('response_time', 'N/A')
                     ])
             except Exception:
                 # Skip hosts that failed to scan
                 pass
     
+    # Sort results by IP address for better readability
+    results.sort(key=lambda x: [int(i) for i in x[0].split('.')])
     return results
 
 def ping_host(ip_address, timeout):
@@ -122,19 +110,24 @@ def ping_host(ip_address, timeout):
         dict: Result of the ping
     """
     # Determine the ping command based on OS
-    ping_cmd = 'ping -c 1 -W {}'.format(int(timeout * 1000))
     if platform.system().lower() == 'windows':
-        ping_cmd = 'ping -n 1 -w {}'.format(int(timeout * 1000))
+        ping_cmd = f'ping -n 1 -w {int(timeout * 1000)}'
+    else:
+        ping_cmd = f'ping -c 1 -W {int(timeout)}'
     
     # Execute the ping command
     try:
+        start_time = time.time()
         subprocess.check_output(f"{ping_cmd} {ip_address}", shell=True)
+        response_time = int((time.time() - start_time) * 1000)  # ms
+        
         # If we get here, the ping was successful
         return {
             'ip_address': ip_address,
             'hostname': get_hostname(ip_address),
-            'mac_address': get_mac_address(ip_address),
-            'status': 'active'
+            'mac_address': 'Not Available',  # Skip MAC address lookup
+            'status': 'active',
+            'response_time': f"{response_time}ms"
         }
     except subprocess.CalledProcessError:
         # Ping failed
@@ -190,34 +183,4 @@ def get_hostname(ip_address):
 
 def get_mac_address(ip_address):
     """Get the MAC address for an IP address."""
-    try:
-        # Different approaches based on the OS
-        if platform.system().lower() == 'windows':
-            # Use ARP on Windows
-            arp_output = subprocess.check_output(f"arp -a {ip_address}", shell=True).decode('utf-8')
-            mac_match = re.search(r'([0-9A-Fa-f]{2}[:-][0-9A-Fa-f]{2}[:-][0-9A-Fa-f]{2}[:-][0-9A-Fa-f]{2}[:-][0-9A-Fa-f]{2}[:-][0-9A-Fa-f]{2})', arp_output)
-            if mac_match:
-                return mac_match.group(1)
-        else:
-            # Linux/Mac - try multiple methods in order of preference
-            methods = [
-                # Method 1: ip neighbor (modern Linux)
-                lambda: subprocess.check_output(f"ip neighbor show {ip_address}", shell=True).decode('utf-8'),
-                # Method 2: arp with full path (most reliable)
-                lambda: subprocess.check_output(f"/usr/sbin/arp -n {ip_address}", shell=True).decode('utf-8'),
-                # Method 3: regular arp command (if in PATH)
-                lambda: subprocess.check_output(f"arp -n {ip_address}", shell=True).decode('utf-8')
-            ]
-            
-            for method in methods:
-                try:
-                    output = method()
-                    mac_match = re.search(r'([0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})', output)
-                    if mac_match:
-                        return mac_match.group(1)
-                except (subprocess.CalledProcessError, FileNotFoundError):
-                    continue
-    except Exception:
-        pass
-    
-    return "Unknown"
+    return "Not Available"  # Simplified version that doesn't depend on arp

@@ -2,8 +2,15 @@
  * Dashboard JavaScript functionality for NetScout Pi
  */
 
-// Initialize Socket.IO connection
-const socket = io();
+// Initialize Socket.IO connection with explicit transport configuration
+const socket = io({
+    transports: ['polling', 'websocket'],  // Try polling first, then websocket
+    reconnectionAttempts: 10,              // Increase reconnection attempts
+    reconnectionDelay: 1000,
+    timeout: 30000,                        // Increase timeout
+    forceNew: true,                        // Force new connection
+    autoConnect: true                      // Auto connect on initialization
+});
 
 // DOM Elements
 const pluginsList = document.getElementById('plugins-list');
@@ -48,19 +55,62 @@ socket.on('connect', () => {
 socket.on('disconnect', () => {
     console.log('Disconnected from server');
     updateSystemStatus('Disconnected');
+    
+    // Show reconnection message
+    displayAlert('Connection to server lost. Attempting to reconnect...', 'warning');
+    
+    // Try to reconnect after 3 seconds
+    setTimeout(() => {
+        if (!socket.connected) {
+            // Force a refresh after 10 seconds if still not connected
+            displayAlert('Reconnection failed. The page will refresh in 10 seconds...', 'danger');
+            setTimeout(() => {
+                window.location.reload();
+            }, 10000);
+        }
+    }, 3000);
+});
+
+socket.on('connect_error', (error) => {
+    console.error('Connection error:', error);
+    displayAlert('Error connecting to server: ' + error.message, 'danger');
+});
+
+socket.on('plugin_pending', (data) => {
+    console.log('Plugin execution started:', data);
+    if (data.plugin_id === currentPluginId) {
+        // Show loading indicator with a timestamp
+        const loadingMessage = `Executing plugin... (started at ${new Date().toLocaleTimeString()})`;
+        displayPluginOutput({ type: 'loading', message: loadingMessage });
+    }
 });
 
 socket.on('plugin_result', (data) => {
     console.log('Received plugin result:', data);
     if (data.plugin_id === currentPluginId) {
-        displayPluginOutput(data.result);
+        // Add timestamp to the result display
+        const timestamp = data.timestamp ? new Date(data.timestamp * 1000).toLocaleTimeString() : new Date().toLocaleTimeString();
+        
+        // If result has an error property, display it as an error
+        if (data.result && data.result.error) {
+            displayPluginError(data.result.error);
+        } else {
+            const resultWithTime = { 
+                ...data.result,
+                _executionTime: timestamp
+            };
+            displayPluginOutput(resultWithTime);
+        }
     }
 });
 
 socket.on('plugin_error', (data) => {
     console.error('Plugin error:', data);
     if (data.plugin_id === currentPluginId) {
-        displayPluginError(data.error);
+        // Add timestamp to the error display
+        const timestamp = data.timestamp ? new Date(data.timestamp * 1000).toLocaleTimeString() : new Date().toLocaleTimeString();
+        const errorWithTime = `Error at ${timestamp}: ${data.error}`;
+        displayPluginError(errorWithTime);
     }
 });
 
@@ -214,13 +264,81 @@ function executePlugin(pluginId, params = {}) {
  * Display plugin output
  * @param {*} result - The result from the plugin execution
  */
+/**
+ * Display plugin execution output
+ * @param {object|string} result - The plugin execution result
+ */
 function displayPluginOutput(result) {
+    // Show plugin output section if hidden
+    showPluginOutput();
+    
     // Convert result to formatted HTML
     let outputHtml = '';
     
-    if (typeof result === 'object') {
+    if (result && result.type === 'loading') {
+        // Display loading indicator
+        outputHtml = `
+            <div class="d-flex align-items-center">
+                <div class="spinner-border text-primary me-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mb-0">${result.message || 'Executing plugin...'}</p>
+            </div>
+        `;
+    } else if (result && result.type === 'table' && Array.isArray(result.data)) {
+        // Format table data
+        outputHtml = '<div class="table-responsive mt-3"><table class="table table-striped table-hover">';
+        
+        // Add execution time if available
+        if (result._executionTime) {
+            outputHtml += `<caption>Results from scan completed at ${result._executionTime}</caption>`;
+        }
+        
+        // Add headers
+        if (Array.isArray(result.headers) && result.headers.length > 0) {
+            outputHtml += '<thead><tr>';
+            for (const header of result.headers) {
+                outputHtml += `<th>${header}</th>`;
+            }
+            outputHtml += '</tr></thead>';
+        }
+        
+        // Add rows
+        outputHtml += '<tbody>';
+        for (const row of result.data) {
+            outputHtml += '<tr>';
+            if (Array.isArray(row)) {
+                for (const cell of row) {
+                    outputHtml += `<td>${cell}</td>`;
+                }
+            } else if (typeof row === 'object') {
+                for (const key in row) {
+                    outputHtml += `<td>${row[key]}</td>`;
+                }
+            }
+            outputHtml += '</tr>';
+        }
+        outputHtml += '</tbody></table></div>';
+        
+        // Add summary if available
+        if (result.subnet) {
+            outputHtml += `
+                <div class="alert alert-info mt-3">
+                    <p><strong>Subnet:</strong> ${result.subnet}</p>
+                    <p><strong>Hosts Found:</strong> ${result.hosts_found}</p>
+                    <p><strong>Scan Time:</strong> ${result.scan_time} seconds</p>
+                </div>
+            `;
+        }
+    } else if (typeof result === 'object') {
+        // Add execution time if available
+        let timeInfo = '';
+        if (result._executionTime) {
+            timeInfo = `<div class="alert alert-info mb-3">Results from execution at ${result._executionTime}</div>`;
+        }
+        
         // Handle JSON objects
-        outputHtml = `<pre class="code-block">${JSON.stringify(result, null, 2)}</pre>`;
+        outputHtml = `${timeInfo}<pre class="code-block">${JSON.stringify(result, null, 2)}</pre>`;
     } else if (typeof result === 'string') {
         // Handle strings
         if (result.startsWith('<')) {
@@ -243,12 +361,31 @@ function displayPluginOutput(result) {
  * @param {string} error - The error message
  */
 function displayPluginError(error) {
+    // Show plugin output section if hidden
+    showPluginOutput();
+    
     pluginOutput.innerHTML = `
         <div class="alert alert-danger" role="alert">
             <h5>Error:</h5>
             <p>${error}</p>
         </div>
+        <div class="alert alert-info" role="alert">
+            <p><strong>Troubleshooting Tips:</strong></p>
+            <ul>
+                <li>Check if the plugin is correctly installed</li>
+                <li>Verify that your network settings are correct</li>
+                <li>Try restarting the server if issues persist</li>
+            </ul>
+        </div>
     `;
+}
+
+/**
+ * Show the plugin output section
+ */
+function showPluginOutput() {
+    // Show plugin output section
+    pluginOutputSection.classList.remove('d-none');
 }
 
 /**

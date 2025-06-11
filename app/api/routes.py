@@ -184,3 +184,45 @@ def ping_host():
     except Exception as e:
         logger.error(f"Error pinging host: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@api_bp.route('/test', methods=['GET'])
+def test_endpoint():
+    """
+    A simple test endpoint to verify the API is working.
+    
+    Returns:
+        JSON response with a success message.
+    """
+    logger.info("Test endpoint accessed")
+    return jsonify({'status': 'ok', 'message': 'API is working!'})
+
+@api_bp.route('/test_plugin/<plugin_id>', methods=['GET'])
+def test_plugin(plugin_id):
+    """
+    Test execution of a plugin with default parameters.
+    
+    Args:
+        plugin_id (str): The ID of the plugin to test.
+        
+    Returns:
+        JSON response with the result of the plugin execution.
+    """
+    logger.info(f"Testing plugin {plugin_id}")
+    plugin_manager = get_plugin_manager()
+    
+    if plugin_id not in plugin_manager.plugins:
+        return jsonify({'error': f'Plugin {plugin_id} not found'}), 404
+        
+    try:
+        # Use default parameters
+        params = {}
+        for param in plugin_manager.plugins[plugin_id]['manifest'].get('parameters', []):
+            if 'default' in param:
+                params[param['name']] = param['default']
+        
+        logger.info(f"Executing plugin {plugin_id} with params: {params}")
+        result = plugin_manager.execute_plugin(plugin_id, params)
+        return jsonify({'result': result})
+    except Exception as e:
+        logger.error(f"Error testing plugin {plugin_id}: {str(e)}")
+        return jsonify({'error': str(e)}), 500

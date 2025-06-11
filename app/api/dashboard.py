@@ -4,6 +4,7 @@ Dashboard routes for the NetScout-Pi-V2 application.
 
 import os
 import logging
+import eventlet
 from flask import Blueprint, render_template, current_app, jsonify, send_from_directory
 from app.plugins.manager import get_plugin_manager
 from app.utils import system, network
@@ -36,13 +37,13 @@ def background_monitor():
                 'timestamp': time.time(),
                 'system': sys_info,
                 'network': net_usage
-            })
+            }, namespace='/')
             
             # Sleep for 5 seconds
-            time.sleep(5)
+            eventlet.sleep(5)
         except Exception as e:
             logger.error(f"Error in monitoring thread: {str(e)}")
-            time.sleep(10)  # Sleep longer on error
+            eventlet.sleep(10)  # Sleep longer on error
 
 @dashboard_bp.route('/')
 def index():
@@ -52,7 +53,12 @@ def index():
     Returns:
         Rendered template for the main dashboard.
     """
-    return render_template('dashboard.html')
+    logger.info("Root route accessed")
+    try:
+        return render_template('dashboard.html')
+    except Exception as e:
+        logger.error(f"Error rendering dashboard: {str(e)}")
+        return f"Error rendering dashboard: {str(e)}", 500
 
 @dashboard_bp.route('/plugins/<plugin_id>/ui')
 def plugin_ui(plugin_id):
@@ -153,19 +159,61 @@ def handle_execute_plugin(data):
     params = data.get('params', {})
     
     if not plugin_id:
-        emit('plugin_error', {'error': 'No plugin ID provided'})
+        emit('plugin_error', {'plugin_id': None, 'error': 'No plugin ID provided'})
         return
-        
-    try:
-        plugin_manager = get_plugin_manager()
-        result = plugin_manager.execute_plugin(plugin_id, params)
-        emit('plugin_result', {
-            'plugin_id': plugin_id,
-            'result': result
-        })
-    except Exception as e:
-        logger.error(f"Error executing plugin {plugin_id}: {str(e)}")
-        emit('plugin_error', {
-            'plugin_id': plugin_id,
-            'error': str(e)
-        })
+    
+    logger.info(f"Executing plugin {plugin_id} with params: {params}")
+    
+    # Immediately acknowledge receipt of the request
+    emit('plugin_pending', {
+        'plugin_id': plugin_id,
+        'message': 'Plugin execution started',
+        'timestamp': time.time()
+    })
+    
+    # Define a function to run the plugin in a background thread
+    def run_plugin_task(plugin_id, params):
+        try:
+            plugin_manager = get_plugin_manager()
+            if not plugin_manager:
+                logger.error(f"Plugin manager not available")
+                socketio.emit('plugin_error', {
+                    'plugin_id': plugin_id,
+                    'error': 'Plugin manager not available'
+                }, namespace='/')
+                return
+                
+            if plugin_id not in plugin_manager.plugins:
+                logger.error(f"Plugin {plugin_id} not found")
+                socketio.emit('plugin_error', {
+                    'plugin_id': plugin_id,
+                    'error': f'Plugin {plugin_id} not found'
+                }, namespace='/')
+                return
+                
+            logger.info(f"Executing plugin {plugin_id} with params: {params}")
+            result = plugin_manager.execute_plugin(plugin_id, params)
+            logger.info(f"Plugin {plugin_id} execution completed successfully")
+            
+            # Ensure the result is JSON serializable
+            try:
+                json.dumps(result)
+            except (TypeError, OverflowError):
+                logger.warning(f"Plugin {plugin_id} returned non-JSON serializable result")
+                result = {'warning': 'Plugin returned non-serializable data', 'data': str(result)}
+                
+            socketio.emit('plugin_result', {
+                'plugin_id': plugin_id,
+                'result': result,
+                'timestamp': time.time()
+            }, namespace='/')
+        except Exception as e:
+            logger.error(f"Error executing plugin {plugin_id}: {str(e)}")
+            socketio.emit('plugin_error', {
+                'plugin_id': plugin_id,
+                'error': str(e),
+                'timestamp': time.time()
+            }, namespace='/')
+    
+    # Run the plugin in a background thread to avoid blocking
+    eventlet.spawn(run_plugin_task, plugin_id, params)
