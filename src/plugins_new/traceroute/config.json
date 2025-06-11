@@ -1,0 +1,14 @@
+{
+    "metadata": {
+        "name": "traceroute",
+        "description": "Traceroute to various targets",
+        "version": "0.1.0",
+        "author": "NetProbe",
+        "permissions": [],
+        "category": "general",
+        "tags": []
+    },
+    "settings": {
+        "enabled": true
+    }
+}

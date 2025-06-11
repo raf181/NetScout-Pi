@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"args": [],
+			"command": "python3 app.py",
+			"group": "start",
+			"isBackground": true,
+			"label": "Run NetScout-Pi App",
+			"problemMatcher": [],
+			"type": "shell"
+		}
+	]
+}

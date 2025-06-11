@@ -1,0 +1,16 @@
+{
+    "metadata": {
+        "name": "plugin_template",
+        "description": "Template plugin for NetScout-Pi",
+        "version": "0.1.0",
+        "author": "NetScout-Pi",
+        "permissions": [],
+        "category": "general",
+        "tags": ["template", "example"]
+    },
+    "settings": {
+        "enabled": true,
+        "example_setting": "example_value",
+        "timeout": 30
+    }
+}

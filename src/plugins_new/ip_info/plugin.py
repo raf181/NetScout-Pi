@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 
 # Add the src directory to the path
-base_dir = Path(__file__).resolve().parent.parent.parent
+base_dir = Path(__file__).resolve().parent.parent.parent.parent
 if str(base_dir) not in sys.path:
     sys.path.append(str(base_dir))
 
@@ -19,12 +19,34 @@ from src.core.plugin_manager import PluginBase
 
 class IPInfoPlugin(PluginBase):
     """Plugin to show current IP, MAC, gateway, subnet mask, DNS info."""
+    def __init__(self, config, logger):
+        """Initialize plugin.
+        
+        Args:
+            config: Plugin configuration.
+            logger: PluginLogger instance.
+        """
+        super().__init__(config, logger)
+        
+        # Read metadata from config.json
+        self.metadata = self.config.get('metadata', {})
+        self.name = self.metadata.get('name', 'ip_info')
+        self.description = self.metadata.get('description', 'Show current IP, MAC, gateway, subnet mask, DNS info')
+        self.version = self.metadata.get('version', '0.1.0')
+        self.author = self.metadata.get('author', 'NetProbe')
+        self.permissions = self.metadata.get('permissions', [])
+        self.category = self.metadata.get('category', 'general')
+        self.tags = self.metadata.get('tags', [])
+        
+        # Initialize plugin-specific variables
+        self.plugin_dir = Path(__file__).resolve().parent
     
-    name = "ip_info"
-    description = "Show current IP, MAC, gateway, subnet mask, DNS info"
-    version = "0.1.0"
-    author = "NetProbe"
-    permissions = []
+    
+    
+    
+    
+    
+    
     
     def run(self, interface=None, **kwargs):
         """Run the plugin.

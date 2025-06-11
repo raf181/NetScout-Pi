@@ -97,6 +97,11 @@ class PluginLogger:
         self.plugin_log_dir = os.path.join(self.log_dir, 'plugins', plugin_name)
         self.results_dir = os.path.join(self.plugin_log_dir, 'results')
         
+        # Initialize run tracking attributes
+        self.current_run_id = None
+        self.run_start_time = None
+        self.log_buffer = []
+        
         # Create required directories
         os.makedirs(self.plugin_log_dir, exist_ok=True)
         os.makedirs(self.results_dir, exist_ok=True)
@@ -135,6 +140,29 @@ class PluginLogger:
     def critical(self, msg, *args, **kwargs):
         """Log critical message."""
         return self.logger.critical(msg, *args, **kwargs)
+    
+    def log(self, msg, level='INFO', *args, **kwargs):
+        """Log a message with the specified level.
+        
+        Args:
+            msg (str): Message to log.
+            level (str): Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+            *args: Additional arguments to pass to the logger.
+            **kwargs: Additional keyword arguments to pass to the logger.
+        """
+        level = level.upper()
+        if level == 'DEBUG':
+            return self.debug(msg, *args, **kwargs)
+        elif level == 'INFO':
+            return self.info(msg, *args, **kwargs)
+        elif level == 'WARNING':
+            return self.warning(msg, *args, **kwargs)
+        elif level == 'ERROR':
+            return self.error(msg, *args, **kwargs)
+        elif level == 'CRITICAL':
+            return self.critical(msg, *args, **kwargs)
+        else:
+            return self.info(msg, *args, **kwargs)
     
     def start_run(self):
         """Start a new plugin run.

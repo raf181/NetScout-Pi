@@ -1,0 +1,16 @@
+{
+    "metadata": {
+        "name": "port_scan",
+        "description": "Scan for open ports on network hosts",
+        "version": "0.1.0",
+        "author": "NetProbe",
+        "permissions": [
+            "sudo"
+        ],
+        "category": "general",
+        "tags": []
+    },
+    "settings": {
+        "enabled": true
+    }
+}

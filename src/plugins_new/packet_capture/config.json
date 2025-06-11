@@ -1,0 +1,16 @@
+{
+    "metadata": {
+        "name": "packet_capture",
+        "description": "Capture network packets with tcpdump",
+        "version": "0.1.0",
+        "author": "NetProbe",
+        "permissions": [
+            "sudo"
+        ],
+        "category": "general",
+        "tags": []
+    },
+    "settings": {
+        "enabled": true
+    }
+}

@@ -1,0 +1,14 @@
+{
+    "metadata": {
+        "name": "ip_info",
+        "description": "Show current IP, MAC, gateway, subnet mask, DNS info",
+        "version": "0.1.0",
+        "author": "NetProbe",
+        "permissions": [],
+        "category": "general",
+        "tags": []
+    },
+    "settings": {
+        "enabled": true
+    }
+}

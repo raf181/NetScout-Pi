@@ -1023,3 +1023,18 @@ class PluginManager:
             plugin_info['status'] = plugin.get_status()
             
         return plugin_info
+    
+    def get_plugin(self, plugin_name):
+        """Get a plugin instance by name.
+        
+        Args:
+            plugin_name (str): Name of the plugin.
+            
+        Returns:
+            PluginBase: Plugin instance or None if not found.
+        """
+        if plugin_name not in self.plugins:
+            self.logger.warning(f"Plugin not found: {plugin_name}")
+            return None
+            
+        return self.load_plugin(plugin_name)

@@ -21,6 +21,7 @@ if str(base_dir) not in sys.path:
 try:
     from src.core.config import Config
     from src.core.plugin_manager import PluginManager
+    from src.core.new_plugin_manager import NewPluginManager
     from src.core.network_monitor import NetworkMonitor
     from src.core.logger import setup_logging
     from src.web.app import create_app as create_web_app
@@ -72,7 +73,7 @@ def main():
         config = Config(config_path)
         
         # Initialize plugin manager
-        plugin_manager = PluginManager(config)
+        plugin_manager = NewPluginManager(config)
         
         # Initialize network monitor
         network_monitor = NetworkMonitor(config, plugin_manager)

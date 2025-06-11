@@ -1236,6 +1236,67 @@ def create_app(config, plugin_manager, network_monitor):
                 }
             })
     
+    @app.route('/api/network/info')
+    @login_required
+    def api_network_info():
+        """Get basic network information."""
+        try:
+            interfaces = []
+            
+            # Get interfaces from network monitor
+            for iface in netifaces.interfaces():
+                addrs = netifaces.ifaddresses(iface)
+                
+                ipv4 = []
+                ipv6 = []
+                mac = None
+                
+                if netifaces.AF_INET in addrs:
+                    for addr in addrs[netifaces.AF_INET]:
+                        ipv4.append({
+                            'address': addr.get('addr'),
+                            'netmask': addr.get('netmask'),
+                            'broadcast': addr.get('broadcast')
+                        })
+                
+                if netifaces.AF_INET6 in addrs:
+                    for addr in addrs[netifaces.AF_INET6]:
+                        ipv6.append({
+                            'address': addr.get('addr'),
+                            'netmask': addr.get('netmask'),
+                            'scope': addr.get('scope')
+                        })
+                
+                if netifaces.AF_LINK in addrs and addrs[netifaces.AF_LINK]:
+                    mac = addrs[netifaces.AF_LINK][0].get('addr')
+                
+                # Get interface flags
+                flags = []
+                try:
+                    # Try to get interface flags from network monitor
+                    if hasattr(network_monitor, 'get_interface_status'):
+                        iface_status = network_monitor.get_interface_status(iface)
+                        if iface_status and 'flags' in iface_status:
+                            flags = iface_status['flags']
+                except Exception as e:
+                    logger.warning(f"Error getting flags for interface {iface}: {str(e)}")
+                
+                interfaces.append({
+                    'name': iface,
+                    'addresses': ipv4,
+                    'mac': mac,
+                    'flags': flags,
+                    'is_up': 'UP' in flags
+                })
+            
+            return jsonify({
+                'interfaces': interfaces
+            })
+            
+        except Exception as e:
+            logger.error(f"Error getting network info: {str(e)}")
+            return jsonify({"error": str(e)}), 500
+    
     # Error handlers
     @app.errorhandler(404)
     def page_not_found(e):
@@ -1277,6 +1338,14 @@ def create_app(config, plugin_manager, network_monitor):
     socketio.init_app(app, cors_allowed_origins="*")
     
     # Initialize web routes
+    try:
+        # Import network API routes
+        from src.web.api_network_info import create_network_api_routes
+        create_network_api_routes(app, network_monitor, login_required)
+        logger.info("Network API routes initialized")
+    except Exception as e:
+        logger.error(f"Error initializing network API routes: {str(e)}")
+    
     # Return both SocketIO instance and app for proper server initialization
     return socketio, app
 

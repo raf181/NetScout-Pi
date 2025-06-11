@@ -1,0 +1,16 @@
+{
+    "metadata": {
+        "name": "vlan_detector",
+        "description": "Detect VLAN tags in network packets",
+        "version": "0.1.0",
+        "author": "NetProbe",
+        "permissions": [
+            "sudo"
+        ],
+        "category": "general",
+        "tags": []
+    },
+    "settings": {
+        "enabled": true
+    }
+}

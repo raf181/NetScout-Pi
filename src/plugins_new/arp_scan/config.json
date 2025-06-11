@@ -1,0 +1,16 @@
+{
+    "metadata": {
+        "name": "arp_scan",
+        "description": "Detect devices in the subnet using ARP scan",
+        "version": "0.1.0",
+        "author": "NetProbe",
+        "permissions": [
+            "sudo"
+        ],
+        "category": "general",
+        "tags": []
+    },
+    "settings": {
+        "enabled": true
+    }
+}
