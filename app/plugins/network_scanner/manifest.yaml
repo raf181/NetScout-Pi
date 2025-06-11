@@ -1,0 +1,29 @@
+name: Network Scanner
+id: network_scanner
+version: 1.0.0
+description: Scans the local network for connected devices
+author: NetScout Team
+homepage: https://github.com/netscout/network-scanner
+main_module: main
+parameters:
+  - name: subnet
+    label: Subnet to Scan
+    type: string
+    description: The subnet to scan (e.g., 192.168.1.0/24)
+    default: 192.168.1.0/24
+    required: true
+  - name: timeout
+    label: Scan Timeout
+    type: number
+    description: Timeout in seconds for each host scan
+    default: 1
+    min: 0.1
+    max: 5
+    required: false
+  - name: quick_scan
+    label: Quick Scan
+    type: boolean
+    description: Use a faster but less comprehensive scan
+    default: true
+    required: false
+ui_path: ui.html

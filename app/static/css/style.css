@@ -1,0 +1,39 @@
+/* Custom styles for NetScout Pi Dashboard */
+
+body {
+    background-color: #f8f9fa;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 20px;
+}
+
+.plugin-card {
+    transition: transform 0.2s ease-in-out;
+    cursor: pointer;
+}
+
+.plugin-card:hover {
+    transform: translateY(-5px);
+}
+
+.plugin-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+}
+
+#plugin-output {
+    min-height: 200px;
+    max-height: 500px;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+}
+
+.code-block {
+    font-family: monospace;
+    background-color: #f1f1f1;
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+}
