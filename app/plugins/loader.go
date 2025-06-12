@@ -1,0 +1,113 @@
+package plugins
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+
+	"github.com/anoam/netscout-pi/app/plugins/plugins/example"
+
+	// Import plugin implementations (relative to this package)
+
+	bandwidthtest "github.com/anoam/netscout-pi/app/plugins/plugins/bandwidth_test"
+
+	dnslookup "github.com/anoam/netscout-pi/app/plugins/plugins/dns_lookup"
+
+	networkinfo "github.com/anoam/netscout-pi/app/plugins/plugins/network_info"
+
+	pingpkg "github.com/anoam/netscout-pi/app/plugins/plugins/ping"
+
+	portscanner "github.com/anoam/netscout-pi/app/plugins/plugins/port_scanner"
+
+	traceroutepkg "github.com/anoam/netscout-pi/app/plugins/plugins/traceroute"
+)
+
+// PluginLoader handles loading plugins from the filesystem
+type PluginLoader struct {
+	pluginsDir string
+	mu         sync.Mutex
+}
+
+// NewPluginLoader creates a new plugin loader
+func NewPluginLoader(pluginsDir string) *PluginLoader {
+	return &PluginLoader{
+		pluginsDir: pluginsDir,
+	}
+}
+
+// LoadPlugins loads all plugins from the plugins directory
+func (pl *PluginLoader) LoadPlugins() ([]*Plugin, error) {
+	pl.mu.Lock()
+	defer pl.mu.Unlock()
+
+	var plugins []*Plugin
+
+	// Get all plugin directories
+	entries, err := os.ReadDir(pl.pluginsDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read plugins directory: %w", err)
+	}
+
+	// Load each plugin
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		pluginDir := filepath.Join(pl.pluginsDir, entry.Name())
+
+		// Load plugin definition
+		pluginDefPath := filepath.Join(pluginDir, "plugin.json")
+		if _, err := os.Stat(pluginDefPath); os.IsNotExist(err) {
+			continue // Skip if plugin.json doesn't exist
+		}
+
+		// Read and parse plugin.json
+		defData, err := os.ReadFile(pluginDefPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read plugin definition for %s: %w", entry.Name(), err)
+		}
+
+		var plugin Plugin
+		if err := json.Unmarshal(defData, &plugin); err != nil {
+			return nil, fmt.Errorf("failed to parse plugin definition for %s: %w", entry.Name(), err)
+		}
+
+		// Get the execute function for the plugin
+		execFunc, err := pl.getPluginExecuteFunc(entry.Name())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get execute function for %s: %w", entry.Name(), err)
+		}
+
+		plugin.Execute = execFunc
+		plugins = append(plugins, &plugin)
+	}
+
+	return plugins, nil
+}
+
+// getPluginExecuteFunc returns the Execute function for a plugin
+// This method hardcodes the mapping since Go doesn't allow for true dynamic loading
+// of Go packages at runtime without plugins (which have platform limitations)
+func (pl *PluginLoader) getPluginExecuteFunc(pluginName string) (func(map[string]interface{}) (interface{}, error), error) {
+	switch pluginName {
+	case "network_info":
+		return networkinfo.Execute, nil
+	case "ping":
+		return pingpkg.Execute, nil
+	case "traceroute":
+		return traceroutepkg.Execute, nil
+	case "port_scanner":
+		return portscanner.Execute, nil
+	case "dns_lookup":
+		return dnslookup.Execute, nil
+	case "bandwidth_test":
+		return bandwidthtest.Execute, nil
+	case "example":
+		return example.Execute, nil
+	default:
+		return nil, fmt.Errorf("plugin implementation not found: %s", pluginName)
+	}
+}

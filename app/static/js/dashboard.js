@@ -1,639 +1,984 @@
 /**
- * Dashboard JavaScript functionality for NetScout Pi
+ * NetScout-Pi Dashboard JavaScript
+ * Handles main dashboard functionality and WebSocket communications
  */
 
-// Initialize Socket.IO connection with explicit transport configuration
-const socket = io({
-    transports: ['polling', 'websocket'],  // Try polling first, then websocket
-    reconnectionAttempts: 10,              // Increase reconnection attempts
-    reconnectionDelay: 1000,
-    timeout: 30000,                        // Increase timeout
-    forceNew: true,                        // Force new connection
-    autoConnect: true                      // Auto connect on initialization
-});
+// Traffic data history for charts
+const trafficHistory = {
+    timestamps: [],
+    download: [],
+    upload: [],
+    maxDataPoints: 20 // Maximum number of data points to show
+};
 
-// DOM Elements
-const pluginsList = document.getElementById('plugins-list');
-const noPluginsMessage = document.getElementById('no-plugins-message');
-const pluginOutputSection = document.getElementById('plugin-output-section');
-const pluginOutput = document.getElementById('plugin-output');
-const currentPluginName = document.getElementById('current-plugin-name');
-const closePluginOutput = document.getElementById('close-plugin-output');
-const uploadPluginForm = document.getElementById('upload-plugin-form');
-const uploadPluginBtn = document.getElementById('upload-plugin-btn');
-const pluginFile = document.getElementById('plugin-file');
-const pluginDetailsModal = new bootstrap.Modal(document.getElementById('pluginDetailsModal'));
-const pluginDetailsTitle = document.getElementById('plugin-details-title');
-const pluginDetailsContent = document.getElementById('plugin-details-content');
-const uninstallPluginBtn = document.getElementById('uninstall-plugin-btn');
-const runPluginBtn = document.getElementById('run-plugin-btn');
-const settingsForm = document.getElementById('settings-form');
-const refreshRateInput = document.getElementById('refresh-rate');
+// Dashboard charts
+let trafficChart;
+let topologyChart;
 
-// Store current plugin ID
-let currentPluginId = null;
+// Network data cache
+let lastNetworkData = null;
 
-// Load plugins on page load
-document.addEventListener('DOMContentLoaded', () => {
-    loadPlugins();
-    loadSettings();
+// Speed test variables
+let lastSpeedTest = null;
+let speedTestInProgress = false;
+let speedTestTimer = null;
+
+// Initialize WebSocket connection
+let socket = null;
+let reconnectTimeout = null;
+
+// Initialize dashboard on document load
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    initializeWebSocket();
+    fetchNetworkInfo();
     
-    // Event listeners
-    uploadPluginBtn.addEventListener('click', uploadPlugin);
-    closePluginOutput.addEventListener('click', hidePluginOutput);
-    uninstallPluginBtn.addEventListener('click', uninstallCurrentPlugin);
-    runPluginBtn.addEventListener('click', runCurrentPlugin);
-    settingsForm.addEventListener('submit', saveSettings);
-});
-
-// Socket.IO event handlers
-socket.on('connect', () => {
-    console.log('Connected to server');
-    updateSystemStatus('Connected');
-});
-
-socket.on('disconnect', () => {
-    console.log('Disconnected from server');
-    updateSystemStatus('Disconnected');
+    // Refresh data periodically in case WebSocket fails
+    setInterval(fetchNetworkInfo, 10000);
     
-    // Show reconnection message
-    displayAlert('Connection to server lost. Attempting to reconnect...', 'warning');
-    
-    // Try to reconnect after 3 seconds
-    setTimeout(() => {
-        if (!socket.connected) {
-            // Force a refresh after 10 seconds if still not connected
-            displayAlert('Reconnection failed. The page will refresh in 10 seconds...', 'danger');
-            setTimeout(() => {
-                window.location.reload();
-            }, 10000);
-        }
-    }, 3000);
-});
-
-socket.on('connect_error', (error) => {
-    console.error('Connection error:', error);
-    displayAlert('Error connecting to server: ' + error.message, 'danger');
-});
-
-socket.on('plugin_pending', (data) => {
-    console.log('Plugin execution started:', data);
-    if (data.plugin_id === currentPluginId) {
-        // Show loading indicator with a timestamp
-        const loadingMessage = `Executing plugin... (started at ${new Date().toLocaleTimeString()})`;
-        // Set a timeout indicator so user knows progress is happening
-        const progressMessage = `<div class="progress my-3">
-            <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                 role="progressbar" aria-valuenow="100" aria-valuemin="0" 
-                 aria-valuemax="100" style="width: 100%"></div>
-        </div>
-        <p class="text-muted">This may take up to 45 seconds for large networks. Please wait...</p>`;
-        
-        displayPluginOutput({ 
-            type: 'loading', 
-            message: loadingMessage + progressMessage
+    // Set status indicators pulse effect
+    setInterval(() => {
+        const indicators = document.querySelectorAll('.realtime-indicator');
+        indicators.forEach(ind => {
+            ind.classList.add('pulse');
+            setTimeout(() => ind.classList.remove('pulse'), 1000);
         });
-        
-        // Set a timeout to update the progress message if it's taking longer
-        setTimeout(() => {
-            if (document.querySelector('.progress-bar-animated')) {
-                const stillWorkingMsg = `<div class="alert alert-info mt-3">
-                    <p>Still working... The network scan is in progress.</p>
-                    <p>Large networks or slow-responding hosts may take longer to scan.</p>
-                </div>`;
-                
-                // Add the still working message if the loading indicator is still showing
-                const outputContainer = document.getElementById('plugin-output');
-                if (outputContainer && outputContainer.innerHTML.includes('progress-bar-animated')) {
-                    const existingContent = outputContainer.innerHTML;
-                    if (!existingContent.includes('Still working')) {
-                        outputContainer.innerHTML += stillWorkingMsg;
-                    }
-                }
-            }
-        }, 15000); // Show after 15 seconds
-    }
-});
+    }, 2000);
 
-socket.on('plugin_result', (data) => {
-    console.log('Received plugin result:', data);
-    if (data.plugin_id === currentPluginId) {
-        // Add timestamp to the result display
-        const timestamp = data.timestamp ? new Date(data.timestamp * 1000).toLocaleTimeString() : new Date().toLocaleTimeString();
-        
-        // If result has an error property, display it as an error
-        if (data.result && data.result.error) {
-            displayPluginError(data.result.error);
-        } else {
-            const resultWithTime = { 
-                ...data.result,
-                _executionTime: timestamp
-            };
-            displayPluginOutput(resultWithTime);
+    // Add listeners to run speed test when connection is detected
+    document.addEventListener('connection-status-change', checkAndRunSpeedTest);
+    
+    // Add event listener for manual speed test button
+    const speedTestButton = document.getElementById('runSpeedTestBtn');
+    if (speedTestButton) {
+        speedTestButton.addEventListener('click', function() {
+            runSpeedTest();
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Testing...';
             
-            // Add warning for scans that were limited or had timeouts
-            if (data.result && (data.result.warning || data.result.note)) {
-                setTimeout(() => {
-                    // Find the output container
-                    const outputContainer = document.getElementById('plugin-output');
-                    
-                    // Add a tip for large networks if we limited the scan
-                    if (data.result.note && data.result.note.includes('Limited scan')) {
-                        const tipHtml = `
-                            <div class="alert alert-warning mt-3">
-                                <h5>Tip for large networks:</h5>
-                                <p>To avoid timeouts, consider:</p>
-                                <ul>
-                                    <li>Scanning smaller subnets (e.g., /25 or /26 instead of /24)</li>
-                                    <li>Using the "Quick Scan" option</li>
-                                    <li>Reducing the timeout value</li>
-                                </ul>
-                            </div>
-                        `;
-                        outputContainer.insertAdjacentHTML('beforeend', tipHtml);
-                    }
-                }, 500);
-            }
-        }
+            // Re-enable button after 15 seconds (test duration + buffer)
+            setTimeout(() => {
+                this.disabled = false;
+                this.innerHTML = '<i class="bi bi-speedometer2"></i> Run Speed Test';
+            }, 15000);
+        });
     }
 });
 
-socket.on('plugin_error', (data) => {
-    console.error('Plugin error:', data);
-    if (data.plugin_id === currentPluginId) {
-        // Add timestamp to the error display
-        const timestamp = data.timestamp ? new Date(data.timestamp * 1000).toLocaleTimeString() : new Date().toLocaleTimeString();
-        const errorWithTime = `Error at ${timestamp}: ${data.error}`;
-        displayPluginError(errorWithTime);
-    }
-});
-
-/**
- * Load all installed plugins
- */
-function loadPlugins() {
-    fetch('/api/plugins')
-        .then(response => response.json())
-        .then(data => {
-            if (data.plugins && data.plugins.length > 0) {
-                displayPlugins(data.plugins);
-                noPluginsMessage.classList.add('d-none');
-            } else {
-                pluginsList.innerHTML = '';
-                noPluginsMessage.classList.remove('d-none');
-            }
-        })
-        .catch(error => {
-            console.error('Error loading plugins:', error);
-            displayError('Failed to load plugins. Please try again later.');
-        });
-}
-
-/**
- * Display plugins in the dashboard
- * @param {Array} plugins - List of plugin objects
- */
-function displayPlugins(plugins) {
-    pluginsList.innerHTML = '';
+// Function to add data to traffic history
+function addTrafficData(timestamp, downloadMbps, uploadMbps) {
+    trafficHistory.timestamps.push(timestamp);
+    trafficHistory.download.push(downloadMbps);
+    trafficHistory.upload.push(uploadMbps);
     
-    plugins.forEach(plugin => {
-        const pluginCard = document.createElement('div');
-        pluginCard.className = 'col-md-4 mb-4';
-        pluginCard.innerHTML = `
-            <div class="card plugin-card h-100" data-plugin-id="${plugin.id}">
-                <div class="card-body text-center">
-                    <div class="plugin-icon">
-                        <i class="bi bi-puzzle"></i>
-                    </div>
-                    <h5 class="card-title">${plugin.name}</h5>
-                    <p class="card-text">${plugin.description}</p>
-                    <div class="text-muted small">Version ${plugin.version}</div>
-                </div>
-                <div class="card-footer bg-transparent">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">By ${plugin.author}</small>
-                        <button class="btn btn-sm btn-primary run-plugin" data-plugin-id="${plugin.id}">Run</button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        pluginsList.appendChild(pluginCard);
-        
-        // Add click event to the card
-        pluginCard.querySelector('.plugin-card').addEventListener('click', (e) => {
-            if (!e.target.classList.contains('run-plugin')) {
-                showPluginDetails(plugin.id);
-            }
-        });
-        
-        // Add click event to the run button
-        pluginCard.querySelector('.run-plugin').addEventListener('click', (e) => {
-            e.stopPropagation();
-            executePlugin(plugin.id, {});
-        });
-    });
-}
-
-/**
- * Show plugin details in modal
- * @param {string} pluginId - The ID of the plugin to show details for
- */
-function showPluginDetails(pluginId) {
-    fetch(`/api/plugins/${pluginId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.plugin) {
-                const plugin = data.plugin;
-                currentPluginId = plugin.id;
-                
-                pluginDetailsTitle.textContent = plugin.name;
-                
-                let parametersHtml = '';
-                if (plugin.parameters && plugin.parameters.length > 0) {
-                    parametersHtml = '<h6>Parameters:</h6><ul>';
-                    plugin.parameters.forEach(param => {
-                        parametersHtml += `<li><strong>${param.name}</strong>: ${param.description || 'No description'}</li>`;
-                    });
-                    parametersHtml += '</ul>';
-                }
-                
-                pluginDetailsContent.innerHTML = `
-                    <p>${plugin.description}</p>
-                    <p><strong>Version:</strong> ${plugin.version}</p>
-                    <p><strong>Author:</strong> ${plugin.author}</p>
-                    ${plugin.homepage ? `<p><strong>Homepage:</strong> <a href="${plugin.homepage}" target="_blank">${plugin.homepage}</a></p>` : ''}
-                    ${parametersHtml}
-                    ${plugin.has_ui ? '<p><a href="/plugins/' + plugin.id + '/ui" class="btn btn-sm btn-outline-primary">Open Plugin UI</a></p>' : ''}
-                `;
-                
-                pluginDetailsModal.show();
-            } else {
-                displayError('Failed to load plugin details.');
-            }
-        })
-        .catch(error => {
-            console.error('Error loading plugin details:', error);
-            displayError('Failed to load plugin details. Please try again later.');
-        });
-}
-
-/**
- * Execute a plugin with parameters
- * @param {string} pluginId - The ID of the plugin to execute
- * @param {Object} params - The parameters to pass to the plugin
- */
-function executePlugin(pluginId, params = {}) {
-    // Hide modal if it's open
-    pluginDetailsModal.hide();
-    
-    // Set current plugin ID and show output section
-    currentPluginId = pluginId;
-    
-    // Get plugin name
-    fetch(`/api/plugins/${pluginId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.plugin) {
-                currentPluginName.textContent = data.plugin.name;
-                showPluginOutput();
-                
-                // Clear previous output
-                pluginOutput.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>Running plugin...</p></div>';
-                
-                // Execute plugin via Socket.IO
-                socket.emit('execute_plugin', {
-                    plugin_id: pluginId,
-                    params: params
-                });
-            }
-        })
-        .catch(error => {
-            console.error('Error getting plugin details:', error);
-            displayError('Failed to execute plugin. Please try again later.');
-        });
-}
-
-/**
- * Display plugin output
- * @param {*} result - The result from the plugin execution
- */
-/**
- * Display plugin execution output
- * @param {object|string} result - The plugin execution result
- */
-function displayPluginOutput(result) {
-    // Show plugin output section if hidden
-    showPluginOutput();
-    
-    // Convert result to formatted HTML
-    let outputHtml = '';
-    
-    if (result && result.type === 'loading') {
-        // Display loading indicator
-        outputHtml = `
-            <div class="d-flex align-items-center">
-                <div class="spinner-border text-primary me-3" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mb-0">${result.message || 'Executing plugin...'}</p>
-            </div>
-        `;
-    } else if (result && result.type === 'table' && Array.isArray(result.data)) {
-        // Format table data
-        outputHtml = '<div class="table-responsive mt-3"><table class="table table-striped table-hover">';
-        
-        // Add execution time if available
-        if (result._executionTime) {
-            outputHtml += `<caption>Results from scan completed at ${result._executionTime}</caption>`;
-        }
-        
-        // Add headers
-        if (Array.isArray(result.headers) && result.headers.length > 0) {
-            outputHtml += '<thead><tr>';
-            for (const header of result.headers) {
-                outputHtml += `<th>${header}</th>`;
-            }
-            outputHtml += '</tr></thead>';
-        }
-        
-        // Add rows
-        outputHtml += '<tbody>';
-        for (const row of result.data) {
-            outputHtml += '<tr>';
-            if (Array.isArray(row)) {
-                for (const cell of row) {
-                    outputHtml += `<td>${cell}</td>`;
-                }
-            } else if (typeof row === 'object') {
-                for (const key in row) {
-                    outputHtml += `<td>${row[key]}</td>`;
-                }
-            }
-            outputHtml += '</tr>';
-        }
-        outputHtml += '</tbody></table></div>';
-        
-        // Add summary if available
-        if (result.subnet) {
-            outputHtml += `
-                <div class="alert alert-info mt-3">
-                    <p><strong>Subnet:</strong> ${result.subnet}</p>
-                    <p><strong>Hosts Found:</strong> ${result.hosts_found}</p>
-                    <p><strong>Scan Time:</strong> ${result.scan_time} seconds</p>
-                    ${result.hosts_scanned ? `<p><strong>Hosts Scanned:</strong> ${result.hosts_scanned} of ${result.total_hosts}</p>` : ''}
-                    ${result.note ? `<p><strong>Note:</strong> ${result.note}</p>` : ''}
-                </div>
-            `;
-        }
-    } else if (typeof result === 'object') {
-        // Add execution time if available
-        let timeInfo = '';
-        if (result._executionTime) {
-            timeInfo = `<div class="alert alert-info mb-3">Results from execution at ${result._executionTime}</div>`;
-        }
-        
-        // Handle JSON objects
-        outputHtml = `${timeInfo}<pre class="code-block">${JSON.stringify(result, null, 2)}</pre>`;
-    } else if (typeof result === 'string') {
-        // Handle strings
-        if (result.startsWith('<')) {
-            // Likely HTML content
-            outputHtml = result;
-        } else {
-            // Regular text
-            outputHtml = `<p>${result}</p>`;
-        }
-    } else {
-        // Handle other types
-        outputHtml = `<p>${result}</p>`;
+    // Keep only the last maxDataPoints
+    if (trafficHistory.timestamps.length > trafficHistory.maxDataPoints) {
+        trafficHistory.timestamps.shift();
+        trafficHistory.download.shift();
+        trafficHistory.upload.shift();
     }
     
-    pluginOutput.innerHTML = outputHtml;
+    // Update traffic chart if it exists
+    if (trafficChart) {
+        trafficChart.data.labels = trafficHistory.timestamps;
+        trafficChart.data.datasets[0].data = trafficHistory.download;
+        trafficChart.data.datasets[1].data = trafficHistory.upload;
+        trafficChart.update();
+    }
 }
 
-/**
- * Display plugin execution error
- * @param {string} error - The error message
- */
-function displayPluginError(error) {
-    // Show plugin output section if hidden
-    showPluginOutput();
+// Format bytes to human-readable format
+function formatBytes(bytes, decimals = 2) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+// Format uptime to human-readable format
+function formatUptime(seconds) {
+    if (isNaN(seconds)) return '--:--:--';
     
-    pluginOutput.innerHTML = `
-        <div class="alert alert-danger" role="alert">
-            <h5>Error:</h5>
-            <p>${error}</p>
-        </div>
-        <div class="alert alert-info" role="alert">
-            <p><strong>Troubleshooting Tips:</strong></p>
-            <ul>
-                <li>Check if the plugin is correctly installed</li>
-                <li>Verify that your network settings are correct</li>
-                <li>Try restarting the server if issues persist</li>
-            </ul>
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Format a MAC address with colons and uppercase
+function formatMacAddress(mac) {
+    if (!mac) return '--';
+    return mac.toUpperCase();
+}
+
+// Get appropriate color for the ARP state
+function getStateColor(state) {
+    if (!state) return '';
+    
+    switch(state) {
+        case 'REACHABLE':
+            return 'text-success';
+        case 'STALE':
+        case 'DELAY':
+        case 'PROBE':
+            return 'text-warning';
+        case 'FAILED':
+        case 'INCOMPLETE': 
+        case 'NOARP':
+            return 'text-danger';
+        case 'PERMANENT':
+            return 'text-info';
+        default:
+            return '';
+    }
+}
+
+// Initialize network topology visualization
+function initializeTopology(data) {
+    const container = document.getElementById('networkTopology');
+    if (!container) return;
+    
+    // Check if we have valid connection data and traffic data
+    const latency = (data.connection && typeof data.connection.latencyMS !== 'undefined') 
+        ? `${data.connection.latencyMS.toFixed(1)} ms` 
+        : '-- ms';
+        
+    const bandwidth = (data.traffic && typeof data.traffic.currentBandwidth !== 'undefined') 
+        ? `${data.traffic.currentBandwidth.toFixed(1)} Mbps` 
+        : '-- Mbps';
+    
+    const gateway = data.gateway || '--';
+    const ipAddress = data.ipv4Address || '--';
+    const deviceType = data.ssid ? 'laptop' : 'pc-display';
+    const connectionType = data.ssid ? `Connected to ${data.ssid}` : 'Ethernet';
+    
+    // Basic topology visualization
+    let html = `
+        <div class="network-topology">
+            <div class="device device-internet">
+                <i class="bi bi-globe"></i>
+                <div class="device-name">Internet</div>
+            </div>
+            <div class="connection-line">
+                <div class="connection-speed">${latency}</div>
+            </div>
+            <div class="device device-gateway">
+                <i class="bi bi-router"></i>
+                <div class="device-name">Gateway (${gateway})</div>
+            </div>
+            <div class="connection-line">
+                <div class="connection-speed">${bandwidth}</div>
+            </div>
+            <div class="device device-current">
+                <i class="bi bi-${deviceType}"></i>
+                <div class="device-name">NetScout-Go (${ipAddress})</div>
+                <div class="device-detail">${connectionType}</div>
+            </div>
         </div>
     `;
-}
-
-/**
- * Show the plugin output section
- */
-function showPluginOutput() {
-    // Show plugin output section
-    pluginOutputSection.classList.remove('d-none');
-}
-
-/**
- * Show the plugin output section
- */
-function showPluginOutput() {
-    pluginOutputSection.classList.remove('d-none');
-}
-
-/**
- * Hide the plugin output section
- */
-function hidePluginOutput() {
-    pluginOutputSection.classList.add('d-none');
-    currentPluginId = null;
-}
-
-/**
- * Upload a new plugin
- */
-function uploadPlugin() {
-    if (!pluginFile.files[0]) {
-        displayError('Please select a file to upload.');
-        return;
-    }
     
-    const formData = new FormData();
-    formData.append('file', pluginFile.files[0]);
+    container.innerHTML = html;
+}
+
+// Initialize traffic chart
+function initializeTrafficChart() {
+    const ctx = document.getElementById('trafficChart');
+    if (!ctx) return;
     
-    // Show loading state
-    uploadPluginBtn.disabled = true;
-    uploadPluginBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...';
-    
-    fetch('/api/plugins', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        // Reset button
-        uploadPluginBtn.disabled = false;
-        uploadPluginBtn.textContent = 'Upload';
+    trafficChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: trafficHistory.timestamps,
+            datasets: [
+                {
+                    label: 'Download (Mbps)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    data: trafficHistory.download,
+                    fill: true
+                },
+                {
+                    label: 'Upload (Mbps)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    data: trafficHistory.upload,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 500
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Speed (Mbps)'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            }
         
-        if (data.success) {
-            // Hide modal and reset form
-            const modal = bootstrap.Modal.getInstance(document.getElementById('uploadPluginModal'));
-            modal.hide();
-            uploadPluginForm.reset();
-            
-            // Reload plugins
-            loadPlugins();
-            
-            // Show success message
-            displayAlert('Plugin uploaded successfully!', 'success');
-        } else {
-            displayError(data.error || 'Failed to upload plugin.');
         }
-    })
-    .catch(error => {
-        console.error('Error uploading plugin:', error);
-        
-        // Reset button
-        uploadPluginBtn.disabled = false;
-        uploadPluginBtn.textContent = 'Upload';
-        
-        displayError('Failed to upload plugin. Please try again later.');
-    });
+        });
 }
 
-/**
- * Uninstall the current plugin
- */
-function uninstallCurrentPlugin() {
-    if (!currentPluginId) return;
-    
-    if (!confirm('Are you sure you want to uninstall this plugin? This action cannot be undone.')) {
-        return;
+// Initialize the WebSocket connection
+function initializeWebSocket() {
+    // Close any existing connection
+    if (socket) {
+        socket.close();
     }
     
-    fetch(`/api/plugins/${currentPluginId}`, {
-        method: 'DELETE'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Hide modal
-            pluginDetailsModal.hide();
-            
-            // Reload plugins
-            loadPlugins();
-            
-            // Show success message
-            displayAlert('Plugin uninstalled successfully!', 'success');
-        } else {
-            displayError(data.error || 'Failed to uninstall plugin.');
-        }
-    })
-    .catch(error => {
-        console.error('Error uninstalling plugin:', error);
-        displayError('Failed to uninstall plugin. Please try again later.');
-    });
-}
-
-/**
- * Run the current plugin from the modal
- */
-function runCurrentPlugin() {
-    if (!currentPluginId) return;
-    
-    // Hide modal
-    pluginDetailsModal.hide();
-    
-    // Execute plugin
-    executePlugin(currentPluginId, {});
-}
-
-/**
- * Load user settings
- */
-function loadSettings() {
-    // Load settings from localStorage
-    const settings = JSON.parse(localStorage.getItem('netscout_settings') || '{}');
-    
-    // Apply settings
-    if (settings.refreshRate) {
-        refreshRateInput.value = settings.refreshRate;
+    // Clear any pending reconnect
+    if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
     }
-}
-
-/**
- * Save user settings
- * @param {Event} e - Form submit event
- */
-function saveSettings(e) {
-    e.preventDefault();
     
-    const settings = {
-        refreshRate: parseInt(refreshRateInput.value, 10) || 10
+    // Create new WebSocket connection
+    socket = new WebSocket(`ws://${window.location.host}/ws`);
+    
+    socket.onopen = function(e) {
+        console.log('WebSocket connection established');
+        
+        // Set all indicators to active
+        document.querySelectorAll('.realtime-indicator').forEach(ind => {
+            ind.classList.add('active');
+        });
     };
     
-    // Save settings to localStorage
-    localStorage.setItem('netscout_settings', JSON.stringify(settings));
+    socket.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'network_update') {
+                updateDashboard(data.data);
+            }
+        } catch (error) {
+            console.error('Error processing WebSocket message:', error);
+        }
+    };
     
-    // Show success message
-    displayAlert('Settings saved successfully!', 'success');
+    socket.onclose = function(event) {
+        console.log('WebSocket connection closed');
+        
+        // Set all indicators to inactive
+        document.querySelectorAll('.realtime-indicator').forEach(ind => {
+            ind.classList.remove('active');
+        });
+        
+        // Attempt to reconnect after 5 seconds
+        reconnectTimeout = setTimeout(() => {
+            console.log('Attempting to reconnect WebSocket...');
+            initializeWebSocket();
+        }, 5000);
+    };
+    
+    socket.onerror = function(error) {
+        console.error('WebSocket error:', error);
+    };
 }
 
-/**
- * Update system status indicator
- * @param {string} status - The system status
- */
-function updateSystemStatus(status) {
-    const statusElement = document.getElementById('system-status');
+// Initialize charts
+function initializeCharts() {
+    initializeTrafficChart();
+}
+
+// Fetch network information from API
+function fetchNetworkInfo() {
+    console.log("Fetching network info from API...");
+    fetch('/api/network-info')
+        .then(response => {
+            console.log("API Response status:", response.status);
+            if (!response.ok) {
+                throw new Error(`Network response was not ok: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("Network data received:", data);
+            if (!data) {
+                console.error("Empty data received from API");
+                return;
+            }
+            
+            // Log specific sections for debugging
+            console.log("DNS Servers:", data.dnsServers);
+            console.log("Connection:", data.connection);
+            console.log("EthernetInfo:", data.ethernetInfo);
+            console.log("Traffic:", data.traffic);
+            
+            // Update the dashboard with the data
+            updateDashboard(data);
+        })
+        .catch(error => {
+            console.error('Error fetching network info:', error);
+        });
+}
+
+// Update dashboard with network info
+function updateDashboard(data) {
+    // Cache the network data
+    lastNetworkData = data;
     
-    if (status === 'Connected') {
-        statusElement.textContent = 'Running';
-        statusElement.className = 'text-success';
+    // Update connection status
+    updateConnectionStatus(data);
+    
+    // Update IP configuration
+    updateIPConfiguration(data);
+    
+    // Update connection metrics
+    updateConnectionMetrics(data);
+    
+    // Update DNS servers
+    updateDNSServers(data);
+    
+    // Update interface details
+    updateInterfaceDetails(data);
+    
+    // Update traffic statistics
+    updateTrafficStatistics(data);
+    
+    // Update ARP table
+    updateARPTable(data);
+    
+    // Update network topology
+    updateNetworkTopology(data);
+    
+    // Add data point to traffic chart
+    addTrafficDataPoint(data);
+    
+    // Update last updated timestamp
+    updateTimestamp(data);
+}
+
+// Update connection status
+function updateConnectionStatus(data) {
+    const statusElement = document.getElementById('connectionStatus');
+    if (!statusElement) return;
+    
+    // Keep track of previous connection status to detect changes
+    const previousStatus = lastNetworkData && lastNetworkData.connection ? lastNetworkData.connection.status : null;
+    const currentStatus = data.connection.status;
+    
+    if (currentStatus === 'connected') {
+        statusElement.innerHTML = '<i class="bi bi-wifi status-icon connected"></i><span class="status-text">Connected</span>';
+    } else if (currentStatus === 'limited') {
+        statusElement.innerHTML = '<i class="bi bi-wifi-1 status-icon limited"></i><span class="status-text">Limited</span>';
     } else {
-        statusElement.textContent = 'Disconnected';
-        statusElement.className = 'text-danger';
+        statusElement.innerHTML = '<i class="bi bi-wifi-off status-icon disconnected"></i><span class="status-text">Disconnected</span>';
+    }
+    
+    // Update uptime
+    const uptimeElement = document.getElementById('uptime');
+    if (uptimeElement) {
+        uptimeElement.textContent = formatUptime(data.connection.uptime);
+    }
+    
+    // Update connection type
+    const connectionTypeElement = document.getElementById('connectionType');
+    if (connectionTypeElement) {
+        const connectionType = data.ssid ? `Wi-Fi (${data.ssid})` : 'Ethernet';
+        connectionTypeElement.textContent = connectionType;
+    }
+    
+    // Emit an event if connection status changed
+    if (previousStatus !== currentStatus) {
+        console.log(`Connection status changed from ${previousStatus} to ${currentStatus}`);
+        document.dispatchEvent(new CustomEvent('connection-status-change', {
+            detail: {
+                previousStatus: previousStatus,
+                status: currentStatus
+            }
+        }));
     }
 }
 
-/**
- * Display an error message
- * @param {string} message - The error message to display
- */
-function displayError(message) {
-    displayAlert(message, 'danger');
+// Update IP configuration
+function updateIPConfiguration(data) {
+    updateElementText('ipv4Address', data.ipv4Address || '--');
+    updateElementText('subnetMask', data.subnetMask || '--');
+    updateElementText('gateway', data.gateway || '--');
+    updateElementText('ipv6Address', data.ipv6Address || '--');
 }
 
-/**
- * Display an alert message
- * @param {string} message - The message to display
- * @param {string} type - The type of alert (success, danger, warning, info)
- */
-function displayAlert(message, type = 'info') {
-    // Create alert element
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed bottom-0 end-0 m-3`;
-    alertDiv.setAttribute('role', 'alert');
-    alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+// Update connection metrics
+function updateConnectionMetrics(data) {
+    console.log("Connection metrics:", data.connection); // Debug log
+    console.log("Traffic data:", data.traffic); // Debug log
+    
+    // Safely update metrics with null checks
+    if (data.connection) {
+        // Note camelCase difference: JSON has latencyMs but code was looking for latencyMS
+        const latency = data.connection.latencyMs !== undefined ? data.connection.latencyMs : 
+                       (data.connection.latencyMS !== undefined ? data.connection.latencyMS : 0);
+        
+        updateElementText('latency', latency > 0 ? `${latency.toFixed(1)} ms` : '-- ms');
+        updateElementText('packetLoss', data.connection.packetLoss !== undefined ? `${data.connection.packetLoss.toFixed(1)}%` : '--%');
+        
+        if (data.connection.signalStrength) {
+            updateElementText('signalStrength', `${data.connection.signalStrength} dBm`);
+        } else {
+            updateElementText('signalStrength', 'N/A');
+        }
+    } else {
+        updateElementText('latency', '-- ms');
+        updateElementText('packetLoss', '--%');
+        updateElementText('signalStrength', 'N/A');
+    }
+    
+    // Safe bandwidth update
+    if (data.traffic && typeof data.traffic.currentBandwidth !== 'undefined') {
+        updateElementText('bandwidth', `${data.traffic.currentBandwidth.toFixed(1)} Mbps`);
+    } else {
+        updateElementText('bandwidth', '-- Mbps');
+    }
+}
+
+// Update DNS servers
+function updateDNSServers(data) {
+    const dnsElement = document.getElementById('dnsServers');
+    if (!dnsElement) {
+        console.error("DNS Servers element not found in DOM!");
+        return;
+    }
+    
+    dnsElement.innerHTML = '';
+    console.log("DNS Servers data:", data.dnsServers); // Debug log
+    
+    if (data.dnsServers && Array.isArray(data.dnsServers) && data.dnsServers.length > 0) {
+        data.dnsServers.forEach((server, index) => {
+            dnsElement.innerHTML += `<div>DNS ${index + 1}: ${server}</div>`;
+        });
+    } else {
+        dnsElement.innerHTML = '<div>No DNS servers configured</div>';
+    }
+}
+
+// Update interface details
+function updateInterfaceDetails(data) {
+    console.log("Interface details:", data.ethernetInfo); // Debug log
+    
+    // Check if DOM elements exist
+    const interfaceNameEl = document.getElementById('interfaceName');
+    const macAddressEl = document.getElementById('macAddress');
+    const linkSpeedEl = document.getElementById('linkSpeed');
+    const duplexEl = document.getElementById('duplex');
+    const ssidEl = document.getElementById('ssid');
+    const vlanInfoEl = document.getElementById('vlanInfo');
+    
+    if (!interfaceNameEl) console.error("Element 'interfaceName' not found in DOM!");
+    if (!macAddressEl) console.error("Element 'macAddress' not found in DOM!");
+    if (!linkSpeedEl) console.error("Element 'linkSpeed' not found in DOM!");
+    if (!duplexEl) console.error("Element 'duplex' not found in DOM!");
+    if (!ssidEl) console.error("Element 'ssid' not found in DOM!");
+    if (!vlanInfoEl) console.error("Element 'vlanInfo' not found in DOM!");
+    
+    // Safely update interface details with null checks
+    if (data.ethernetInfo) {
+        updateElementText('interfaceName', data.ethernetInfo.interfaceName || '--');
+        updateElementText('macAddress', data.ethernetInfo.macAddress || '--');
+        updateElementText('linkSpeed', data.ethernetInfo.speed || '--');
+        updateElementText('duplex', data.ethernetInfo.duplex || '--');
+    } else {
+        // Set default values if ethernetInfo is missing
+        updateElementText('interfaceName', '--');
+        updateElementText('macAddress', '--');
+        updateElementText('linkSpeed', '--');
+        updateElementText('duplex', '--');
+    }
+    
+    updateElementText('ssid', data.ssid || 'N/A');
+    
+    // Format VLAN info
+    if (vlanInfoEl) {
+        if (data.vlanInfo && data.vlanInfo.enabled) {
+            // Check if we're dealing with vlanId (camelCase issue)
+            const vlanId = data.vlanInfo.vlanId !== undefined ? data.vlanInfo.vlanId : 
+                         (data.vlanInfo.VLANID !== undefined ? data.vlanInfo.VLANID : 0);
+            
+            vlanInfoEl.innerHTML = `ID: ${vlanId}<br>Name: ${data.vlanInfo.name || ''}`;
+        } else {
+            vlanInfoEl.textContent = 'Not configured';
+        }
+    }
+}
+
+// Update traffic statistics
+function updateTrafficStatistics(data) {
+    console.log("Traffic statistics:", data.traffic); // Debug log
+    console.log("DHCP info:", data.dhcpInfo); // Debug log
+    
+    // Check if DOM elements exist
+    const bytesReceivedEl = document.getElementById('bytesReceived');
+    const bytesSentEl = document.getElementById('bytesSent');
+    const packetsReceivedEl = document.getElementById('packetsReceived');
+    const packetsSentEl = document.getElementById('packetsSent');
+    const dhcpStatusEl = document.getElementById('dhcpStatus');
+    const dhcpInfoEl = document.getElementById('dhcpInfo');
+    
+    if (!bytesReceivedEl) console.error("Element 'bytesReceived' not found in DOM!");
+    if (!bytesSentEl) console.error("Element 'bytesSent' not found in DOM!");
+    if (!packetsReceivedEl) console.error("Element 'packetsReceived' not found in DOM!");
+    if (!packetsSentEl) console.error("Element 'packetsSent' not found in DOM!");
+    if (!dhcpStatusEl) console.error("Element 'dhcpStatus' not found in DOM!");
+    if (!dhcpInfoEl) console.error("Element 'dhcpInfo' not found in DOM!");
+    
+    // Safely update traffic statistics with null checks
+    if (data.traffic) {
+        updateElementText('bytesReceived', typeof data.traffic.bytesReceived !== 'undefined' ? formatBytes(data.traffic.bytesReceived) : '--');
+        updateElementText('bytesSent', typeof data.traffic.bytesSent !== 'undefined' ? formatBytes(data.traffic.bytesSent) : '--');
+        updateElementText('packetsReceived', typeof data.traffic.packetsReceived !== 'undefined' ? data.traffic.packetsReceived.toLocaleString() : '--');
+        updateElementText('packetsSent', typeof data.traffic.packetsSent !== 'undefined' ? data.traffic.packetsSent.toLocaleString() : '--');
+    } else {
+        updateElementText('bytesReceived', '--');
+        updateElementText('bytesSent', '--');
+        updateElementText('packetsReceived', '--');
+        updateElementText('packetsSent', '--');
+    }
+    
+    // Safely update DHCP info
+    if (data.dhcpInfo) {
+        updateElementText('dhcpStatus', data.dhcpInfo.enabled ? 'Enabled' : 'Disabled');
+        
+        // Handle DHCP info
+        if (dhcpInfoEl) {
+            if (data.dhcpInfo.enabled) {
+                let dhcpInfoText = `Server: ${data.dhcpInfo.dhcpServer || data.dhcpInfo.DHCPServer || 'Unknown'}`;
+                
+                if (data.dhcpInfo.leaseObtained && data.dhcpInfo.leaseObtained !== "0001-01-01T00:00:00Z") {
+                    const leaseObtained = new Date(data.dhcpInfo.leaseObtained);
+                    dhcpInfoText += `<br>Obtained: ${leaseObtained.toLocaleString()}`;
+                }
+                
+                if (data.dhcpInfo.leaseExpires && data.dhcpInfo.leaseExpires !== "0001-01-01T00:00:00Z") {
+                    const leaseExpires = new Date(data.dhcpInfo.leaseExpires);
+                    dhcpInfoText += `<br>Expires: ${leaseExpires.toLocaleString()}`;
+                }
+                
+                dhcpInfoEl.innerHTML = dhcpInfoText;
+            } else {
+                dhcpInfoEl.textContent = 'Static Configuration';
+            }
+        }
+    } else {
+        updateElementText('dhcpStatus', '--');
+        if (dhcpInfoEl) {
+            dhcpInfoEl.textContent = '--';
+        }
+    }
+}
+
+// Update ARP table
+function updateARPTable(data) {
+    const arpTableBody = document.getElementById('arpTable');
+    if (!arpTableBody) return;
+    
+    arpTableBody.innerHTML = '';
+    
+    if (data.arpEntries && data.arpEntries.length > 0) {
+        data.arpEntries.forEach(entry => {
+            const row = document.createElement('tr');
+            
+            // IP Address cell
+            const ipCell = document.createElement('td');
+            ipCell.textContent = entry.ipAddress;
+            row.appendChild(ipCell);
+            
+            // MAC Address cell
+            const macCell = document.createElement('td');
+            macCell.textContent = formatMacAddress(entry.macAddress);
+            row.appendChild(macCell);
+            
+            // Interface cell
+            const interfaceCell = document.createElement('td');
+            interfaceCell.textContent = entry.device;
+            row.appendChild(interfaceCell);
+            
+            // State cell
+            const stateCell = document.createElement('td');
+            stateCell.textContent = entry.state || 'UNKNOWN';
+            stateCell.classList.add(getStateColor(entry.state));
+            row.appendChild(stateCell);
+            
+            arpTableBody.appendChild(row);
+        });
+    } else {
+        arpTableBody.innerHTML = '<tr><td colspan="4" class="text-center">No ARP entries found</td></tr>';
+    }
+}
+
+// Update network topology
+function updateNetworkTopology(data) {
+    const topologyElement = document.getElementById('networkTopology');
+    if (!topologyElement) return;
+    
+    // Generate simple topology HTML
+    topologyElement.innerHTML = generateSimpleTopologyHTML(data);
+}
+
+// Generate a simple topology HTML visualization
+function generateSimpleTopologyHTML(data) {
+    // Find gateway in ARP entries for better visualization
+    let gatewayMac = '';
+    if (data.arpEntries && data.arpEntries.length > 0) {
+        const gatewayEntry = data.arpEntries.find(entry => entry.ipAddress === data.gateway);
+        if (gatewayEntry) {
+            gatewayMac = gatewayEntry.macAddress;
+        }
+    }
+
+    // Display neighboring devices from ARP table
+    let neighborDevices = '';
+    if (data.arpEntries && data.arpEntries.length > 0) {
+        // Limit to 5 neighbors for visual clarity
+        const neighbors = data.arpEntries.filter(entry => entry.ipAddress !== data.gateway).slice(0, 5);
+        
+        if (neighbors.length > 0) {
+            neighbors.forEach(neighbor => {
+                neighborDevices += `
+                    <div class="topology-device neighbor">
+                        <i class="bi bi-pc"></i>
+                        <div>${neighbor.ipAddress}</div>
+                        <div class="small text-muted">${neighbor.macAddress}</div>
+                    </div>
+                `;
+            });
+        }
+    }
+
+    return `
+        <div class="topology-map">
+            <div class="topology-internet">
+                <i class="bi bi-globe"></i>
+                <div>Internet</div>
+            </div>
+            <div class="topology-line"></div>
+            <div class="topology-router">
+                <i class="bi bi-router"></i>
+                <div>Router (${data.gateway})</div>
+                ${gatewayMac ? `<div class="small text-muted">${gatewayMac}</div>` : ''}
+            </div>
+            <div class="topology-line"></div>
+            <div class="topology-device active">
+                <i class="bi bi-${data.ssid ? 'laptop' : 'pc-display'}"></i>
+                <div>NetScout-Go (${data.ipv4Address})</div>
+                <div class="small text-muted">${data.ethernetInfo.macAddress}</div>
+            </div>
+            ${data.ssid ? `
+            <div class="topology-wifi-indicator">
+                <i class="bi bi-wifi"></i>
+                <div>${data.ssid}</div>
+            </div>
+            ` : ''}
+            
+            ${neighborDevices ? `
+            <div class="topology-neighbors">
+                <div class="small text-muted mb-2">Other Devices on Network:</div>
+                ${neighborDevices}
+            </div>
+            ` : ''}
+        </div>
     `;
+}
+
+// Add traffic data point to chart
+function addTrafficDataPoint(data) {
+    const now = new Date();
+    const timeLabel = now.toLocaleTimeString();
     
-    // Add to document
-    document.body.appendChild(alertDiv);
+    // Safe check if traffic data exists
+    if (data.traffic && typeof data.traffic.currentBandwidth !== 'undefined') {
+        // Calculate download/upload split (for demonstration - in real app would come from actual measurements)
+        // This is just for visual effect on the chart since we only have total bandwidth
+        const downloadBandwidth = data.traffic.currentBandwidth * 0.7; // 70% of bandwidth
+        const uploadBandwidth = data.traffic.currentBandwidth * 0.3;   // 30% of bandwidth
+        
+        // Add data to traffic history
+        addTrafficData(timeLabel, downloadBandwidth, uploadBandwidth);
+    } else {
+        // Add zero values if no data is available
+        addTrafficData(timeLabel, 0, 0);
+    }
+}
+
+// Update timestamp
+function updateTimestamp(data) {
+    const lastUpdatedElement = document.getElementById('lastUpdated');
+    if (lastUpdatedElement) {
+        const timestamp = new Date(data.timestamp);
+        lastUpdatedElement.textContent = timestamp.toLocaleString();
+    }
+}
+
+// Function to run a bandwidth test
+function runSpeedTest() {
+    if (speedTestInProgress) return; // Don't run if test is already in progress
     
-    // Auto-dismiss after 5 seconds
-    setTimeout(() => {
-        const bsAlert = new bootstrap.Alert(alertDiv);
-        bsAlert.close();
-    }, 5000);
+    // Set the test to in progress
+    speedTestInProgress = true;
+    
+    // Update UI to show test is running
+    const bandwidthElement = document.getElementById('bandwidth');
+    if (bandwidthElement) {
+        bandwidthElement.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Testing...';
+    }
+    
+    // Add status indicator to bandwidth row
+    const bandwidthRow = document.querySelector('.row:has(#bandwidth)');
+    if (bandwidthRow) {
+        // Check if status badge already exists
+        let statusBadge = document.getElementById('speedTestStatus');
+        if (!statusBadge) {
+            // Create a new status badge if it doesn't exist
+            statusBadge = document.createElement('div');
+            statusBadge.id = 'speedTestStatus';
+            statusBadge.className = 'badge bg-warning ms-2';
+            statusBadge.style.verticalAlign = 'middle';
+            bandwidthRow.querySelector('.col-6:first-child').appendChild(statusBadge);
+        }
+        statusBadge.innerHTML = 'Testing...';
+        statusBadge.className = 'badge bg-warning ms-2';
+    }
+    
+    // Disable the speed test button and show testing status
+    const speedTestButton = document.getElementById('runSpeedTestBtn');
+    if (speedTestButton) {
+        speedTestButton.disabled = true;
+        speedTestButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Testing...';
+    }
+    
+    // Add a testing indicator to the Connection Metrics card
+    const cardFooter = document.querySelector('.card:has(#bandwidth) .card-footer .small.text-muted');
+    if (cardFooter) {
+        cardFooter.innerHTML = `<i class="bi bi-arrow-repeat spin"></i> Speed test running...`;
+    }
+    
+    console.log("Running automatic bandwidth test...");
+    
+    // Call the bandwidth_test plugin API
+    const requestBody = {
+        id: 'bandwidth_test',
+        params: {
+            server: 'auto',
+            duration: 10
+        }
+    };
+    
+    console.log('Sending speed test request:', requestBody);
+    
+    fetch('/api/run-plugin', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+    })
+    .then(response => {
+        if (!response.ok) {
+            // Log more detailed information about the error
+            console.error(`API error: ${response.status} ${response.statusText}`);
+            // Try to get more information from the response body
+            return response.text().then(text => {
+                try {
+                    // Try to parse as JSON
+                    const errorData = JSON.parse(text);
+                    throw new Error(`Server error: ${errorData.error || response.status}`);
+                } catch (parseError) {
+                    // If it's not JSON, just use the text
+                    throw new Error(`Network response was not ok: ${response.status} - ${text || response.statusText}`);
+                }
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Speed test response:', data);
+        
+        // Check if we have the expected data structure
+        if (!data.downloadSpeed && !data.downloadSpeed !== 0) {
+            console.warn('Speed test response missing downloadSpeed:', data);
+        }
+        
+        // Store the test results
+        lastSpeedTest = {
+            timestamp: new Date(),
+            downloadSpeed: data.downloadSpeed || 0,
+            uploadSpeed: data.uploadSpeed || 0,
+            latency: data.latency || 0
+        };
+        
+        // Update UI with test results
+        updateSpeedTestResults(data);
+        
+        // Set speed test to not in progress
+        speedTestInProgress = false;
+        
+        console.log("Speed test complete:", data);
+    })
+    .catch(error => {
+        console.error('Error running speed test:', error);
+        
+        // Reset UI
+        if (bandwidthElement) {
+            bandwidthElement.innerHTML = '<span class="text-danger">Test failed</span>';
+            setTimeout(() => {
+                bandwidthElement.textContent = '-- Mbps';
+            }, 3000);
+        }
+        
+        // Update status indicator to show failure
+        const statusBadge = document.getElementById('speedTestStatus');
+        if (statusBadge) {
+            statusBadge.className = 'speed-test-status badge bg-danger position-absolute end-0 top-0 mt-1 me-1';
+            statusBadge.innerHTML = '<i class="bi bi-x-circle"></i> Failed';
+            
+            // Fade out the status badge after 3 seconds
+            setTimeout(() => {
+                if (statusBadge) {
+                    statusBadge.style.opacity = '0';
+                    statusBadge.style.transition = 'opacity 1s';
+                    setTimeout(() => {
+                        if (statusBadge) {
+                            statusBadge.style.display = 'none';
+                        }
+                    }, 1000);
+                }
+            }, 3000);
+        }
+        
+        // Update the footer to indicate test failure
+        const cardFooter = document.querySelector('.card:has(#bandwidth) .card-footer .small.text-muted');
+        if (cardFooter) {
+            cardFooter.innerHTML = '<i class="bi bi-info-circle"></i> Performance metrics <span class="ms-1 text-danger">(Test failed)</span>';
+        }
+        
+        // Re-enable the button if present
+        const speedTestButton = document.getElementById('runSpeedTestBtn');
+        if (speedTestButton) {
+            speedTestButton.disabled = false;
+            speedTestButton.innerHTML = '<i class="bi bi-speedometer2"></i> Run Speed Test';
+        }
+        
+        // Set speed test to not in progress
+        speedTestInProgress = false;
+    });
+}
+
+// Function to update UI with speed test results
+function updateSpeedTestResults(data) {
+    // Update bandwidth display
+    const bandwidthElement = document.getElementById('bandwidth');
+    if (bandwidthElement && data.downloadSpeed) {
+        bandwidthElement.textContent = `${data.downloadSpeed.toFixed(2)} Mbps`;
+    }
+    
+    // If we have connection metrics, update latency too
+    const latencyElement = document.getElementById('latency');
+    if (latencyElement && data.latency) {
+        latencyElement.textContent = `${data.latency} ms`;
+    }
+    
+    // Update packet loss if available
+    const packetLossElement = document.getElementById('packetLoss');
+    if (packetLossElement && data.packetLoss !== undefined) {
+        packetLossElement.textContent = `${data.packetLoss}%`;
+    }
+    
+    // Hide or update status indicator
+    const statusBadge = document.getElementById('speedTestStatus');
+    if (statusBadge) {
+        statusBadge.innerHTML = 'Complete';
+        statusBadge.className = 'badge bg-success ms-2';
+        
+        // Fade out the badge after 5 seconds
+        setTimeout(() => {
+            statusBadge.style.transition = 'opacity 1s';
+            statusBadge.style.opacity = '0';
+            // Remove the badge after fade out
+            setTimeout(() => {
+                statusBadge.remove();
+            }, 1000);
+        }, 5000);
+    }
+    
+    // Update the footer with last test time in the Connection Metrics card
+    const cardFooter = document.querySelector('.card:has(#bandwidth) .card-footer .small.text-muted');
+    if (cardFooter) {
+        const timestamp = new Date().toLocaleTimeString();
+        cardFooter.innerHTML = `<i class="bi bi-info-circle"></i> Performance metrics <span class="ms-1">(Last test: ${timestamp})</span>`;
+    }
+    
+    // Reset the speed test button
+    const speedTestButton = document.getElementById('runSpeedTestBtn');
+    if (speedTestButton) {
+        speedTestButton.disabled = false;
+        speedTestButton.innerHTML = '<i class="bi bi-speedometer2"></i> Run Speed Test';
+    }
+}
+
+// Check connection status and run speed test if appropriate
+function checkAndRunSpeedTest(event) {
+    // If the connection just became active and we haven't run a test recently
+    if (event.detail.status === 'connected') {
+        const now = new Date();
+        // Check if we've switched from disconnected or limited to connected
+        const connectionChanged = event.detail.previousStatus !== 'connected';
+        
+        // Check if connection is Ethernet (not Wi-Fi)
+        const isEthernet = lastNetworkData && !lastNetworkData.ssid;
+        
+        // If the connection just changed to connected and it's Ethernet, or
+        // if we haven't run a test before, or it's been more than 30 minutes
+        const shouldRunTest = (connectionChanged && isEthernet) || 
+            !lastSpeedTest || 
+            ((now - lastSpeedTest.timestamp) > (30 * 60 * 1000));
+            
+        if (shouldRunTest) {
+            // Show notification that automatic test will run
+            const speedTestButton = document.getElementById('runSpeedTestBtn');
+            if (speedTestButton) {
+                speedTestButton.innerHTML = '<i class="bi bi-clock-history"></i> Auto-test in 5s...';
+                speedTestButton.disabled = true;
+            }
+            
+            // Wait 5 seconds to ensure connection is stable
+            clearTimeout(speedTestTimer);
+            console.log("Scheduling speed test after connection detected" + 
+                        (isEthernet ? " (Ethernet connection)" : ""));
+            
+            speedTestTimer = setTimeout(() => {
+                runSpeedTest();
+            }, 5000);
+        }
+    }
+}
+
+// Helper function to update element text
+function updateElementText(elementId, text) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.textContent = text;
+    } else {
+        console.error(`Failed to update element: '${elementId}' not found in DOM!`);
+    }
 }

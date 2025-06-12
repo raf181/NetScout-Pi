@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }} | NetScout-Pi</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <link href="/static/css/speed-test.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar Navigation -->
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="sidebar-header mb-4">
+                        <h3 class="text-center text-light">NetScout-Pi</h3>
+                    </div>
+                    <ul class="nav flex-column">
+                        <!-- Main Dashboard Link -->
+                        <li class="nav-item">
+                            <a class="nav-link main-nav-link {{ if eq .title "NetScout-Pi Dashboard" }}active{{ end }}" href="/">
+                                <i class="bi bi-speedometer2"></i>
+                                Network Dashboard
+                            </a>
+                        </li>
+                        
+                        <!-- Plugins Section -->
+                        <li class="nav-item sidebar-heading">
+                            <span>Network Tools</span>
+                        </li>
+                        
+                        <!-- Plugin Navigation -->
+                        {{range .plugins}}
+                        <li class="nav-item">
+                            <a class="nav-link plugin-nav-link {{ if eq $.title .Name }}active{{ end }}" href="/plugin/{{.ID}}" data-plugin-id="{{.ID}}">
+                                <i class="bi bi-{{.Icon}}"></i>
+                                {{.Name}}
+                            </a>
+                        </li>
+                        {{end}}
+                    </ul>
+                    
+                    <!-- Sidebar Footer -->
+                    <div class="sidebar-footer">
+                        <div class="text-center text-light small">
+                            <div>NetScout-Pi</div>
+                            <div>Version 1.0</div>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <!-- Header with title and actions -->
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">{{ .title }}</h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="refreshBtn">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                        <div class="btn-group me-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleSidebarBtn">
+                                <i class="bi bi-layout-sidebar"></i> Toggle Sidebar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Breadcrumb Navigation -->
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/">Network Dashboard</a></li>
+                        {{if ne .title "NetScout-Pi Dashboard"}}
+                        <li class="breadcrumb-item active" aria-current="page">{{ .title }}</li>
+                        {{end}}
+                    </ol>
+                </nav>
+
+                <!-- Content will be replaced by specific page templates -->
+                {{block "content" .}}{{end}}
+            </main>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+    <script src="/static/js/plugin-manager.js"></script>
+    {{block "scripts" .}}{{end}}
+
+    <script>
+        // Toggle sidebar
+        document.getElementById('toggleSidebarBtn').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('collapse');
+            document.querySelector('main').classList.toggle('col-md-9');
+            document.querySelector('main').classList.toggle('col-md-12');
+        });
+
+        // Refresh button
+        document.getElementById('refreshBtn').addEventListener('click', function() {
+            location.reload();
+        });
+    </script>
+</body>
+</html>
