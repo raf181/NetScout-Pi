@@ -13,15 +13,33 @@ import (
 
 	bandwidthtest "github.com/anoam/netscout-pi/app/plugins/plugins/bandwidth_test"
 
+	devicediscovery "github.com/anoam/netscout-pi/app/plugins/plugins/device_discovery"
+
 	dnslookup "github.com/anoam/netscout-pi/app/plugins/plugins/dns_lookup"
 
+	dnspropagation "github.com/anoam/netscout-pi/app/plugins/plugins/dns_propagation"
+
+	externalplugin "github.com/anoam/netscout-pi/app/plugins/plugins/external_plugin"
+
+	mtutester "github.com/anoam/netscout-pi/app/plugins/plugins/mtu_tester"
+
 	networkinfo "github.com/anoam/netscout-pi/app/plugins/plugins/network_info"
+
+	networkquality "github.com/anoam/netscout-pi/app/plugins/plugins/network_quality"
+
+	packetcapture "github.com/anoam/netscout-pi/app/plugins/plugins/packet_capture"
 
 	pingpkg "github.com/anoam/netscout-pi/app/plugins/plugins/ping"
 
 	portscanner "github.com/anoam/netscout-pi/app/plugins/plugins/port_scanner"
 
+	reversednslookup "github.com/anoam/netscout-pi/app/plugins/plugins/reverse_dns_lookup"
+
+	sslchecker "github.com/anoam/netscout-pi/app/plugins/plugins/ssl_checker"
+
 	traceroutepkg "github.com/anoam/netscout-pi/app/plugins/plugins/traceroute"
+
+	wifiscanner "github.com/anoam/netscout-pi/app/plugins/plugins/wifi_scanner"
 )
 
 // PluginLoader handles loading plugins from the filesystem
@@ -105,8 +123,26 @@ func (pl *PluginLoader) getPluginExecuteFunc(pluginName string) (func(map[string
 		return dnslookup.Execute, nil
 	case "bandwidth_test":
 		return bandwidthtest.Execute, nil
+	case "dns_propagation":
+		return dnspropagation.Execute, nil
+	case "reverse_dns_lookup":
+		return reversednslookup.Execute, nil
+	case "device_discovery":
+		return devicediscovery.Execute, nil
+	case "mtu_tester":
+		return mtutester.Execute, nil
+	case "network_quality":
+		return networkquality.Execute, nil
+	case "packet_capture":
+		return packetcapture.Execute, nil
+	case "ssl_checker":
+		return sslchecker.Execute, nil
+	case "wifi_scanner":
+		return wifiscanner.Execute, nil
 	case "example":
 		return example.Execute, nil
+	case "external_plugin":
+		return externalplugin.Execute, nil
 	default:
 		return nil, fmt.Errorf("plugin implementation not found: %s", pluginName)
 	}

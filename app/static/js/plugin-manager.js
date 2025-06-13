@@ -86,9 +86,10 @@ const PluginManager = {
     runPlugin: function() {
         if (!this.activePluginId) return;
         
-        // Show loading indicator
+        // Show loading indicator with message
         document.getElementById('pluginResults').classList.add('d-none');
         document.getElementById('resultsLoading').classList.remove('d-none');
+        document.getElementById('loadingMessage').textContent = 'Running plugin...';
         
         // Get form parameters
         const form = document.getElementById('pluginForm');
@@ -115,6 +116,16 @@ const PluginManager = {
         // Save parameters for refresh
         this.lastParams = params;
         
+        // For external plugins, give a specific message
+        if (this.activePluginId === 'external_plugin') {
+            document.getElementById('loadingMessage').textContent = 'Running external plugin... This may take a moment.';
+        }
+        
+        // Set a timeout to update the loading message if it takes longer than expected
+        const loadingTimeout = setTimeout(() => {
+            document.getElementById('loadingMessage').textContent = 'Plugin is still running... Please wait.';
+        }, 5000);
+        
         // Call API to run plugin
         fetch(`/api/plugins/${this.activePluginId}/run`, {
             method: 'POST',
@@ -124,12 +135,22 @@ const PluginManager = {
             body: JSON.stringify(params)
         })
         .then(response => {
+            clearTimeout(loadingTimeout);
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                if (response.status === 500) {
+                    // Instead of throwing an error, update the loading message
+                    document.getElementById('loadingMessage').textContent = 'Processing results...';
+                    // Try again after a short delay
+                    setTimeout(() => this.checkPluginStatus(params), 1500);
+                    return null;
+                }
+                throw new Error(`Server responded with status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
+            if (data === null) return; // Handled by retry mechanism
+            
             // Hide loading indicator
             document.getElementById('resultsLoading').classList.add('d-none');
             document.getElementById('pluginResults').classList.remove('d-none');
@@ -151,6 +172,65 @@ const PluginManager = {
         })
         .catch(error => {
             console.error('Error running plugin:', error);
+            document.getElementById('resultsLoading').classList.add('d-none');
+            document.getElementById('pluginResults').classList.remove('d-none');
+            document.getElementById('pluginResults').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    Error running plugin: ${error.message}
+                </div>
+            `;
+        });
+    },
+    
+    // Check plugin status and retry if necessary
+    checkPluginStatus: function(params) {
+        console.log('Checking plugin status and retrying...');
+        
+        fetch(`/api/plugins/${this.activePluginId}/run`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(params)
+        })
+        .then(response => {
+            if (!response.ok) {
+                if (response.status === 500) {
+                    // If it's still processing, try again after a delay
+                    document.getElementById('loadingMessage').textContent = 'Plugin is still running... Please be patient.';
+                    setTimeout(() => this.checkPluginStatus(params), 2000);
+                    return null;
+                }
+                throw new Error(`Server responded with status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data === null) return; // Handled by retry mechanism
+            
+            // Hide loading indicator
+            document.getElementById('resultsLoading').classList.add('d-none');
+            document.getElementById('pluginResults').classList.remove('d-none');
+            
+            // Save result for export and caching
+            this.lastResult = data;
+            
+            // Cache results for this plugin
+            try {
+                localStorage.setItem(`plugin_results_${this.activePluginId}`, JSON.stringify(data));
+                const timestamp = new Date().toLocaleString();
+                localStorage.setItem(`plugin_timestamp_${this.activePluginId}`, timestamp);
+                
+                // Display results
+                this.displayResults(data, timestamp);
+            } catch (e) {
+                console.error('Error caching results:', e);
+            }
+        })
+        .catch(error => {
+            console.error('Error checking plugin status:', error);
+            // After several retries, give up and show the error
             document.getElementById('resultsLoading').classList.add('d-none');
             document.getElementById('pluginResults').classList.remove('d-none');
             document.getElementById('pluginResults').innerHTML = `
@@ -213,6 +293,9 @@ const PluginManager = {
                 break;
             case 'bandwidth_test':
                 this.displayBandwidthResults(data, resultsElement);
+                break;
+            case 'external_plugin':
+                this.displayExternalPluginResults(data, resultsElement);
                 break;
             default:
                 // Generic JSON display
@@ -654,7 +737,64 @@ const PluginManager = {
                 });
             }
         }, 100);
-    }
+    },
+    
+    // Display external plugin results
+    displayExternalPluginResults: function(data, element) {
+        // Check if we have raw output or structured data
+        if (data.raw_output) {
+            element.innerHTML = `
+                <div class="external-plugin-results">
+                    <div class="result-card">
+                        <div class="result-header">External Plugin Output</div>
+                        <div class="result-body">
+                            <pre class="raw-output">${data.raw_output}</pre>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+        
+        // If we have structured data, display it nicely
+        let resultsHtml = '<div class="external-plugin-results">';
+        
+        // Check if we have a custom title
+        if (data.title) {
+            resultsHtml += `
+                <div class="alert alert-info">
+                    <h5>${data.title}</h5>
+                    ${data.description ? `<p>${data.description}</p>` : ''}
+                </div>
+            `;
+        }
+        
+        // Add key-value pairs in a card
+        resultsHtml += '<div class="result-card"><div class="result-header">Results</div><div class="result-body">';
+        
+        Object.entries(data).forEach(([key, value]) => {
+            // Skip special keys used for display purposes
+            if (key === 'title' || key === 'description') return;
+            
+            // Format different value types
+            let displayValue = '';
+            if (typeof value === 'object' && value !== null) {
+                displayValue = `<pre class="json-result">${JSON.stringify(value, null, 2)}</pre>`;
+            } else {
+                displayValue = value;
+            }
+            
+            resultsHtml += `
+                <div class="result-row">
+                    <div class="result-label">${key}</div>
+                    <div class="result-value">${displayValue}</div>
+                </div>
+            `;
+        });
+        
+        resultsHtml += '</div></div></div>';
+        element.innerHTML = resultsHtml;
+    },
 };
 
 // Initialize the plugin manager when DOM is loaded
