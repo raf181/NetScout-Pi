@@ -21,30 +21,175 @@
                     <div class="sidebar-header mb-4">
                         <h3 class="text-center text-light">NetScout-Pi</h3>
                     </div>
+                    
+                    <!-- Main Dashboard Link -->
                     <ul class="nav flex-column">
-                        <!-- Main Dashboard Link -->
                         <li class="nav-item">
                             <a class="nav-link main-nav-link {{ if eq .title "NetScout-Pi Dashboard" }}active{{ end }}" href="/">
                                 <i class="bi bi-speedometer2"></i>
                                 Network Dashboard
                             </a>
                         </li>
-                        
-                        <!-- Plugins Section -->
-                        <li class="nav-item sidebar-heading">
-                            <span>Network Tools</span>
-                        </li>
-                        
-                        <!-- Plugin Navigation -->
-                        {{range .plugins}}
-                        <li class="nav-item">
-                            <a class="nav-link plugin-nav-link {{ if eq $.title .Name }}active{{ end }}" href="/plugin/{{.ID}}" data-plugin-id="{{.ID}}">
-                                <i class="bi bi-{{.Icon}}"></i>
-                                {{.Name}}
-                            </a>
-                        </li>
-                        {{end}}
                     </ul>
+                    
+                    <!-- Plugins Accordion -->
+                    <div class="plugins-container">
+                        <div class="accordion" id="pluginsAccordion">
+                            <!-- Network Analysis Tools -->
+                            <div class="accordion-item bg-dark border-0">
+                                <h2 class="accordion-header" id="headingOne">
+                                    <button class="accordion-button bg-dark text-light collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                                        <i class="bi bi-graph-up me-2"></i> Network Analysis
+                                    </button>
+                                </h2>
+                                <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#pluginsAccordion">
+                                    <div class="accordion-body p-0">
+                                        <ul class="nav flex-column">
+                                            {{range .plugins}}
+                                                {{if or (eq .ID "network_quality") (eq .ID "bandwidth_test") (eq .ID "packet_capture") (eq .ID "network_info")}}
+                                                <li class="nav-item">
+                                                    <a class="nav-link plugin-nav-link {{ if eq $.title .Name }}active{{ end }}" href="/plugin/{{.ID}}" data-plugin-id="{{.ID}}">
+                                                        <i class="bi bi-{{.Icon}}"></i>
+                                                        {{.Name}}
+                                                    </a>
+                                                </li>
+                                                {{end}}
+                                            {{end}}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Network Discovery Tools -->
+                            <div class="accordion-item bg-dark border-0">
+                                <h2 class="accordion-header" id="headingTwo">
+                                    <button class="accordion-button bg-dark text-light collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                                        <i class="bi bi-search me-2"></i> Network Discovery
+                                    </button>
+                                </h2>
+                                <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#pluginsAccordion">
+                                    <div class="accordion-body p-0">
+                                        <ul class="nav flex-column">
+                                            {{range .plugins}}
+                                                {{if or (eq .ID "device_discovery") (eq .ID "port_scanner") (eq .ID "wifi_scanner")}}
+                                                <li class="nav-item">
+                                                    <a class="nav-link plugin-nav-link {{ if eq $.title .Name }}active{{ end }}" href="/plugin/{{.ID}}" data-plugin-id="{{.ID}}">
+                                                        <i class="bi bi-{{.Icon}}"></i>
+                                                        {{.Name}}
+                                                    </a>
+                                                </li>
+                                                {{end}}
+                                            {{end}}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Connectivity Tools -->
+                            <div class="accordion-item bg-dark border-0">
+                                <h2 class="accordion-header" id="headingThree">
+                                    <button class="accordion-button bg-dark text-light collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                                        <i class="bi bi-hdd-network me-2"></i> Connectivity
+                                    </button>
+                                </h2>
+                                <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#pluginsAccordion">
+                                    <div class="accordion-body p-0">
+                                        <ul class="nav flex-column">
+                                            {{range .plugins}}
+                                                {{if or (eq .ID "ping") (eq .ID "traceroute") (eq .ID "mtu_tester")}}
+                                                <li class="nav-item">
+                                                    <a class="nav-link plugin-nav-link {{ if eq $.title .Name }}active{{ end }}" href="/plugin/{{.ID}}" data-plugin-id="{{.ID}}">
+                                                        <i class="bi bi-{{.Icon}}"></i>
+                                                        {{.Name}}
+                                                    </a>
+                                                </li>
+                                                {{end}}
+                                            {{end}}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- DNS Tools -->
+                            <div class="accordion-item bg-dark border-0">
+                                <h2 class="accordion-header" id="headingFour">
+                                    <button class="accordion-button bg-dark text-light collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFour" aria-expanded="false" aria-controls="collapseFour">
+                                        <i class="bi bi-globe me-2"></i> DNS Tools
+                                    </button>
+                                </h2>
+                                <div id="collapseFour" class="accordion-collapse collapse" aria-labelledby="headingFour" data-bs-parent="#pluginsAccordion">
+                                    <div class="accordion-body p-0">
+                                        <ul class="nav flex-column">
+                                            {{range .plugins}}
+                                                {{if or (eq .ID "dns_lookup") (eq .ID "dns_propagation") (eq .ID "reverse_dns_lookup")}}
+                                                <li class="nav-item">
+                                                    <a class="nav-link plugin-nav-link {{ if eq $.title .Name }}active{{ end }}" href="/plugin/{{.ID}}" data-plugin-id="{{.ID}}">
+                                                        <i class="bi bi-{{.Icon}}"></i>
+                                                        {{.Name}}
+                                                    </a>
+                                                </li>
+                                                {{end}}
+                                            {{end}}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Security Tools -->
+                            <div class="accordion-item bg-dark border-0">
+                                <h2 class="accordion-header" id="headingFive">
+                                    <button class="accordion-button bg-dark text-light collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFive" aria-expanded="false" aria-controls="collapseFive">
+                                        <i class="bi bi-shield-lock me-2"></i> Security
+                                    </button>
+                                </h2>
+                                <div id="collapseFive" class="accordion-collapse collapse" aria-labelledby="headingFive" data-bs-parent="#pluginsAccordion">
+                                    <div class="accordion-body p-0">
+                                        <ul class="nav flex-column">
+                                            {{range .plugins}}
+                                                {{if (eq .ID "ssl_checker")}}
+                                                <li class="nav-item">
+                                                    <a class="nav-link plugin-nav-link {{ if eq $.title .Name }}active{{ end }}" href="/plugin/{{.ID}}" data-plugin-id="{{.ID}}">
+                                                        <i class="bi bi-{{.Icon}}"></i>
+                                                        {{.Name}}
+                                                    </a>
+                                                </li>
+                                                {{end}}
+                                            {{end}}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Other Tools -->
+                            <div class="accordion-item bg-dark border-0">
+                                <h2 class="accordion-header" id="headingSix">
+                                    <button class="accordion-button bg-dark text-light collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSix" aria-expanded="false" aria-controls="collapseSix">
+                                        <i class="bi bi-tools me-2"></i> Other Tools
+                                    </button>
+                                </h2>
+                                <div id="collapseSix" class="accordion-collapse collapse" aria-labelledby="headingSix" data-bs-parent="#pluginsAccordion">
+                                    <div class="accordion-body p-0">
+                                        <ul class="nav flex-column">
+                                            {{range .plugins}}
+                                                {{if and (ne .ID "network_quality") (ne .ID "bandwidth_test") (ne .ID "packet_capture") (ne .ID "network_info") 
+                                                     (ne .ID "device_discovery") (ne .ID "port_scanner") (ne .ID "wifi_scanner") 
+                                                     (ne .ID "ping") (ne .ID "traceroute") (ne .ID "mtu_tester") 
+                                                     (ne .ID "dns_lookup") (ne .ID "dns_propagation") (ne .ID "reverse_dns_lookup") 
+                                                     (ne .ID "ssl_checker")}}
+                                                <li class="nav-item">
+                                                    <a class="nav-link plugin-nav-link {{ if eq $.title .Name }}active{{ end }}" href="/plugin/{{.ID}}" data-plugin-id="{{.ID}}">
+                                                        <i class="bi bi-{{.Icon}}"></i>
+                                                        {{.Name}}
+                                                    </a>
+                                                </li>
+                                                {{end}}
+                                            {{end}}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     
                     <!-- Sidebar Footer -->
                     <div class="sidebar-footer">
@@ -106,6 +251,17 @@
         // Refresh button
         document.getElementById('refreshBtn').addEventListener('click', function() {
             location.reload();
+        });
+        
+        // Auto-expand accordion panel that contains the active plugin
+        document.addEventListener('DOMContentLoaded', function() {
+            const activePlugin = document.querySelector('.plugin-nav-link.active');
+            if (activePlugin) {
+                const accordionPanel = activePlugin.closest('.accordion-collapse');
+                if (accordionPanel) {
+                    accordionPanel.classList.add('show');
+                }
+            }
         });
     </script>
 </body>
