@@ -4,6 +4,8 @@
 
 NetScout-Go uses a modular plugin system where each plugin is contained in its own directory with configuration and implementation files. This makes it easy to add, remove, or update plugins independently.
 
+The Plugin Built on the Go programming language can be compiled into the same binary as the server, allowing for easy deployment on to remote devices like Raspberry Pi. The plugin system is designed to be flexible and extensible, allowing developers to create custom network diagnostic tools.
+
 ## Plugin Structure
 
 Each plugin resides in its own directory under `app/plugins/plugins/`. For example:
