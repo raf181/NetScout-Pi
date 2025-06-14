@@ -121,7 +121,7 @@
                                     <div class="accordion-body p-0">
                                         <ul class="nav flex-column">
                                             {{range .plugins}}
-                                                {{if or (eq .ID "iperf3") (eq .ID "tc_controller")}}
+                                                {{if or (eq .ID "iperf3") (eq .ID "iperf3_server") (eq .ID "tc_controller")}}
                                                 <li class="nav-item">
                                                     <a class="nav-link plugin-nav-link {{ if eq $.title .Name }}active{{ end }}" href="/plugin/{{.ID}}" data-plugin-id="{{.ID}}">
                                                         <i class="bi bi-{{.Icon}}"></i>
@@ -200,7 +200,7 @@
                                                      (ne .ID "device_discovery") (ne .ID "port_scanner") (ne .ID "wifi_scanner") 
                                                      (ne .ID "ping") (ne .ID "traceroute") (ne .ID "mtu_tester") 
                                                      (ne .ID "dns_lookup") (ne .ID "dns_propagation") (ne .ID "reverse_dns_lookup") 
-                                                     (ne .ID "ssl_checker") (ne .ID "iperf3") (ne .ID "tc_controller")}}
+                                                     (ne .ID "ssl_checker") (ne .ID "iperf3") (ne .ID "iperf3_server") (ne .ID "tc_controller")}}
                                                 <li class="nav-item">
                                                     <a class="nav-link plugin-nav-link {{ if eq $.title .Name }}active{{ end }}" href="/plugin/{{.ID}}" data-plugin-id="{{.ID}}">
                                                         <i class="bi bi-{{.Icon}}"></i>

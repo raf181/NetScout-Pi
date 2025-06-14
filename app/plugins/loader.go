@@ -23,6 +23,8 @@ import (
 
 	iperf3pkg "github.com/anoam/netscout-pi/app/plugins/plugins/iperf3"
 
+	iperf3serverpkg "github.com/anoam/netscout-pi/app/plugins/plugins/iperf3_server"
+
 	mtutester "github.com/anoam/netscout-pi/app/plugins/plugins/mtu_tester"
 
 	networkinfo "github.com/anoam/netscout-pi/app/plugins/plugins/network_info"
@@ -145,6 +147,8 @@ func (pl *PluginLoader) getPluginExecuteFunc(pluginName string) (func(map[string
 		return wifiscanner.Execute, nil
 	case "iperf3":
 		return iperf3pkg.Execute, nil
+	case "iperf3_server":
+		return iperf3serverpkg.Execute, nil
 	case "tc_controller":
 		return tccontroller.Execute, nil
 	case "example":

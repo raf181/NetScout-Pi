@@ -24,6 +24,7 @@ NetScout-Pi is a comprehensive network diagnostic and monitoring tool designed s
 - **Network Information**: View detailed information about your Pi's network interfaces
 - **Bandwidth Test**: Measure network bandwidth
 - **iPerf3 Throughput Test**: Measure end-to-end bandwidth with remote iPerf3 servers
+- **iPerf3 Server**: Host an iPerf3 server for bandwidth testing from other devices
 - **Traffic Control (QoS)**: Simulate network conditions and test Quality of Service
 - **Network Quality Monitor**: Measure jitter, latency, and packet loss over time
 - **MTU Size Tester**: Find the optimal MTU size for your connection
@@ -182,6 +183,7 @@ See the [Plugin Development Guide](app/plugins/DEVELOPMENT.md) for details on cr
 | network_info | Get detailed network info | interface |
 | bandwidth_test | Measure network speed | duration, direction, server |
 | iperf3 | iPerf3 throughput testing | server, port, duration, protocol, reverse, parallel |
+| iperf3_server | Host an iPerf3 server | port, bind_address, protocol, duration, action |
 | tc_controller | Traffic Control (QoS) simulation | interface, mode, bandwidth, latency, packet_loss, jitter, duration |
 | network_quality | Monitor network quality metrics | duration, target, interval |
 | mtu_tester | Find optimal MTU size | host, startSize, endSize, step |
