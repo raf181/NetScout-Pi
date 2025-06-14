@@ -46,7 +46,7 @@
                                     <div class="accordion-body p-0">
                                         <ul class="nav flex-column">
                                             {{range .plugins}}
-                                                {{if or (eq .ID "network_quality") (eq .ID "bandwidth_test") (eq .ID "packet_capture") (eq .ID "network_info")}}
+                                                {{if or (eq .ID "network_quality") (eq .ID "bandwidth_test") (eq .ID "packet_capture") (eq .ID "network_info") (eq .ID "iperf3") (eq .ID "tc_controller")}}
                                                 <li class="nav-item">
                                                     <a class="nav-link plugin-nav-link {{ if eq $.title .Name }}active{{ end }}" href="/plugin/{{.ID}}" data-plugin-id="{{.ID}}">
                                                         <i class="bi bi-{{.Icon}}"></i>
@@ -97,6 +97,31 @@
                                         <ul class="nav flex-column">
                                             {{range .plugins}}
                                                 {{if or (eq .ID "ping") (eq .ID "traceroute") (eq .ID "mtu_tester")}}
+                                                <li class="nav-item">
+                                                    <a class="nav-link plugin-nav-link {{ if eq $.title .Name }}active{{ end }}" href="/plugin/{{.ID}}" data-plugin-id="{{.ID}}">
+                                                        <i class="bi bi-{{.Icon}}"></i>
+                                                        {{.Name}}
+                                                    </a>
+                                                </li>
+                                                {{end}}
+                                            {{end}}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Performance Tools -->
+                            <div class="accordion-item bg-dark border-0">
+                                <h2 class="accordion-header" id="headingPerformance">
+                                    <button class="accordion-button bg-dark text-light collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePerformance" aria-expanded="false" aria-controls="collapsePerformance">
+                                        <i class="bi bi-speedometer me-2"></i> Performance
+                                    </button>
+                                </h2>
+                                <div id="collapsePerformance" class="accordion-collapse collapse" aria-labelledby="headingPerformance" data-bs-parent="#pluginsAccordion">
+                                    <div class="accordion-body p-0">
+                                        <ul class="nav flex-column">
+                                            {{range .plugins}}
+                                                {{if or (eq .ID "iperf3") (eq .ID "tc_controller")}}
                                                 <li class="nav-item">
                                                     <a class="nav-link plugin-nav-link {{ if eq $.title .Name }}active{{ end }}" href="/plugin/{{.ID}}" data-plugin-id="{{.ID}}">
                                                         <i class="bi bi-{{.Icon}}"></i>
@@ -175,7 +200,7 @@
                                                      (ne .ID "device_discovery") (ne .ID "port_scanner") (ne .ID "wifi_scanner") 
                                                      (ne .ID "ping") (ne .ID "traceroute") (ne .ID "mtu_tester") 
                                                      (ne .ID "dns_lookup") (ne .ID "dns_propagation") (ne .ID "reverse_dns_lookup") 
-                                                     (ne .ID "ssl_checker")}}
+                                                     (ne .ID "ssl_checker") (ne .ID "iperf3") (ne .ID "tc_controller")}}
                                                 <li class="nav-item">
                                                     <a class="nav-link plugin-nav-link {{ if eq $.title .Name }}active{{ end }}" href="/plugin/{{.ID}}" data-plugin-id="{{.ID}}">
                                                         <i class="bi bi-{{.Icon}}"></i>

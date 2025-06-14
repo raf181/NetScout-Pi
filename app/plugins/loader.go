@@ -21,6 +21,8 @@ import (
 
 	externalplugin "github.com/anoam/netscout-pi/app/plugins/plugins/external_plugin"
 
+	iperf3pkg "github.com/anoam/netscout-pi/app/plugins/plugins/iperf3"
+
 	mtutester "github.com/anoam/netscout-pi/app/plugins/plugins/mtu_tester"
 
 	networkinfo "github.com/anoam/netscout-pi/app/plugins/plugins/network_info"
@@ -36,6 +38,8 @@ import (
 	reversednslookup "github.com/anoam/netscout-pi/app/plugins/plugins/reverse_dns_lookup"
 
 	sslchecker "github.com/anoam/netscout-pi/app/plugins/plugins/ssl_checker"
+
+	tccontroller "github.com/anoam/netscout-pi/app/plugins/plugins/tc_controller"
 
 	traceroutepkg "github.com/anoam/netscout-pi/app/plugins/plugins/traceroute"
 
@@ -139,6 +143,10 @@ func (pl *PluginLoader) getPluginExecuteFunc(pluginName string) (func(map[string
 		return sslchecker.Execute, nil
 	case "wifi_scanner":
 		return wifiscanner.Execute, nil
+	case "iperf3":
+		return iperf3pkg.Execute, nil
+	case "tc_controller":
+		return tccontroller.Execute, nil
 	case "example":
 		return example.Execute, nil
 	case "external_plugin":

@@ -23,6 +23,8 @@ NetScout-Pi is a comprehensive network diagnostic and monitoring tool designed s
 
 - **Network Information**: View detailed information about your Pi's network interfaces
 - **Bandwidth Test**: Measure network bandwidth
+- **iPerf3 Throughput Test**: Measure end-to-end bandwidth with remote iPerf3 servers
+- **Traffic Control (QoS)**: Simulate network conditions and test Quality of Service
 - **Network Quality Monitor**: Measure jitter, latency, and packet loss over time
 - **MTU Size Tester**: Find the optimal MTU size for your connection
 - **Packet Capture**: Capture and analyze network packets using tcpdump
@@ -54,6 +56,7 @@ NetScout-Pi is a comprehensive network diagnostic and monitoring tool designed s
 - Raspberry Pi OS (or other compatible Linux distribution)
 - Go programming language installed (version 1.16 or newer)
 - Internet connection (for installation)
+- Additional dependencies for specific plugins (see [Plugin Dependencies](app/plugins/plugins/DEPENDENCIES.md))
 
 ## Installation
 
@@ -178,6 +181,8 @@ See the [Plugin Development Guide](app/plugins/DEVELOPMENT.md) for details on cr
 | **Network Analysis** | | |
 | network_info | Get detailed network info | interface |
 | bandwidth_test | Measure network speed | duration, direction, server |
+| iperf3 | iPerf3 throughput testing | server, port, duration, protocol, reverse, parallel |
+| tc_controller | Traffic Control (QoS) simulation | interface, mode, bandwidth, latency, packet_loss, jitter, duration |
 | network_quality | Monitor network quality metrics | duration, target, interval |
 | mtu_tester | Find optimal MTU size | host, startSize, endSize, step |
 | packet_capture | Capture network packets | interface, duration, filter, outputFile |
